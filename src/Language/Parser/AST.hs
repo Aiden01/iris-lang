@@ -1,11 +1,11 @@
 module Language.Parser.AST
-    ( TopLevelStatement(..)
-    , Lit(..)
-    , Expr(..)
-    , Program(..)
-    , BinOp(..)
-    , UnaryOp(..)
-    )
+  ( TopLevelStatement(..)
+  , Lit(..)
+  , Expr(..)
+  , Program(..)
+  , BinOp(..)
+  , UnaryOp(..)
+  )
 where
 
 import           Data.List                      ( intercalate )

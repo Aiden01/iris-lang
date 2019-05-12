@@ -7,7 +7,8 @@
 module Main where
 
 import           Lib
+import           Language.Cli
 
 main :: IO ()
-main = putStr "hi"
+main = runCli
 

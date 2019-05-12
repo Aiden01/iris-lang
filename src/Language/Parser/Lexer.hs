@@ -1,19 +1,19 @@
 module Language.Parser.Lexer
-    ( lexeme
-    , identifier
-    , whiteSpace
-    , lexer
-    , reserved
-    , parens
-    , commaSep
-    , braces
-    , stringLiteral
-    , charLiteral
-    , integer
-    , squareBrackets
-    , colon
-    , reservedOp
-    )
+  ( lexeme
+  , identifier
+  , whiteSpace
+  , lexer
+  , reserved
+  , parens
+  , commaSep
+  , braces
+  , stringLiteral
+  , charLiteral
+  , integer
+  , squareBrackets
+  , colon
+  , reservedOp
+  )
 where
 
 
@@ -30,16 +30,16 @@ import           Text.Parsec
 
 language :: LanguageDef ()
 language = emptyDef
-    { identStart      = letter <|> char '_'
-    , identLetter     = identStart language
-    , reservedNames   = ["func", "val", "if", "while", "True", "False"]
-    , reservedOpNames = ["+", "-", "*", "/"]
-    , commentStart    = "/*"
-    , commentEnd      = "*/"
-    , commentLine     = "//"
-    , nestedComments  = True
-    , caseSensitive   = True
-    }
+  { identStart      = letter <|> char '_'
+  , identLetter     = identStart language
+  , reservedNames   = ["func", "val", "if", "while", "True", "False"]
+  , reservedOpNames = ["+", "-", "*", "/"]
+  , commentStart    = "/*"
+  , commentEnd      = "*/"
+  , commentLine     = "//"
+  , nestedComments  = True
+  , caseSensitive   = True
+  }
 
 lexer :: TokenParser ()
 lexer = Token.makeTokenParser language
