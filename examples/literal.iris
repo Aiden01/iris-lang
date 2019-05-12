@@ -1,0 +1,20 @@
+// String
+val str -> "Hello, world"
+
+// char
+val char -> 'c'
+
+// array
+val arr -> ['h', 'e', 'l', 'l', 'o']
+
+// integers
+val int -> 500
+
+// float
+val float -> 5.50
+
+// object
+val obj -> {
+    foo: "foo",
+    bar: "bar"
+}
