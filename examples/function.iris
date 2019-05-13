@@ -1,3 +1,8 @@
 func add (a, b) {
-    return a + b
+    
 }
+
+
+
+val x -> add();
+val y -> add;
