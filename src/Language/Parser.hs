@@ -20,8 +20,8 @@ parseFile :: String -> IO ()
 parseFile path = do
     contents <- readFile path
     case parse (parseProgram <* eof) "" contents of
-        Left  e   -> print e
-        Right ast -> print ast
+        Left  e   -> red e
+        Right ast -> green (prettyProgram ast)
 
 
 parseProgram :: Parser Program
