@@ -1,90 +1,109 @@
 module Language.Parser.Lexer
     ( lexeme
     , identifier
-    , whiteSpace
-    , lexer
-    , reserved
+    , space
+    , keyword
     , parens
     , commaSep
     , braces
     , stringLiteral
     , charLiteral
-    , integer
-    , squareBrackets
+    , integerLiteral
+    , brackets
     , colon
-    , reservedOp
-    , float
+    , operator
+    , floatLiteral
+    , symbol
     )
 where
 
 
-import qualified Text.Parsec.Token             as Token
-import           Text.Parsec.String             ( Parser )
-import           Text.Parsec.Token              ( GenTokenParser
-                                                , GenLanguageDef(..)
-                                                , LanguageDef
-                                                , TokenParser
-                                                , makeTokenParser
-                                                )
-import           Text.Parsec.Language           ( emptyDef )
-import           Text.Parsec
-
-language :: LanguageDef ()
-language = emptyDef
-    { identStart      = letter <|> char '_'
-    , identLetter     = identStart language
-    , reservedNames   = ["func", "val", "if", "while", "True", "False"]
-    , reservedOpNames = ["+", "-", "*", "/"]
-    , commentStart    = "/*"
-    , commentEnd      = "*/"
-    , commentLine     = "//"
-    , nestedComments  = True
-    , caseSensitive   = True
-    }
-
-lexer :: TokenParser ()
-lexer = Token.makeTokenParser language
-
-reservedOp :: String -> Parser ()
-reservedOp s = lexeme (Token.reservedOp lexer s)
+import qualified Text.Megaparsec               as Mega
+import qualified Text.Megaparsec.Char          as MegaC
+import qualified Text.Megaparsec.Char.Lexer    as MegaL
+import           Language.Parser.Types          ( ParserT )
+import qualified Data.Text                     as T
+import qualified Data.Set                      as S
 
 
-identifier :: Parser String
-identifier = lexeme (Token.identifier lexer)
+-- Execute the given parser and skip trailling spaces or comments
+lexeme :: ParserT a -> ParserT a
+lexeme = MegaL.lexeme space
 
-lexeme :: Parser a -> Parser a
-lexeme = Token.lexeme lexer
+-- Skips spaces and comments
+space, skipLineComment, skipBlockComment :: ParserT ()
+space = MegaL.space MegaC.space1 skipLineComment skipBlockComment
+skipLineComment = MegaL.skipLineComment (T.pack "//")
+skipBlockComment = MegaL.skipBlockComment (T.pack "/*") (T.pack "*/")
 
-parens :: Parser a -> Parser a
-parens p = lexeme (Token.parens lexer p)
+-- Parses a symbol, such as semicolon or comma
+symbol :: String -> ParserT T.Text
+symbol = MegaL.symbol space . T.pack
 
-commaSep :: Parser a -> Parser [a]
-commaSep p = lexeme (Token.commaSep lexer p)
+-- Parses a keyword
+keyword :: String -> ParserT ()
+keyword w = (lexeme . Mega.try)
+    (MegaC.string (T.pack w) *> Mega.notFollowedBy MegaC.alphaNumChar)
 
-colon :: Parser String
-colon = lexeme (Token.colon lexer)
+-- Reserved keywords
+keywords :: S.Set String
+keywords = S.fromList ["func", "val", "if", "while", "True", "False"]
 
-braces :: Parser a -> Parser a
-braces = Token.braces lexer
+-- Parses an identifier
+identifier :: ParserT String
+identifier = (lexeme . Mega.try) (Mega.many MegaC.alphaNumChar >>= check)
+  where
+    check x
+        | x `S.member` keywords
+        = fail
+            $  "Cannot use reserved keyword "
+            ++ show x
+            ++ " as an indentifier."
+        | otherwise
+        = return x
 
-squareBrackets :: Parser a -> Parser a
-squareBrackets = Token.brackets lexer
+-- Parses an operator
+operator :: String -> ParserT T.Text
+operator op
+    | op `S.member` operators = (lexeme . Mega.try) (MegaC.string (T.pack op))
+    | otherwise               = fail $ "Unknown operator " ++ op
+    where operators = S.fromList ["+", "-", "*", "/"]
 
-whiteSpace :: Parser ()
-whiteSpace = Token.whiteSpace lexer
+-- Parses a char and skips trailling whitespace/comments
+char :: Char -> ParserT Char
+char = lexeme . MegaC.char
 
-charLiteral :: Parser Char
-charLiteral = Token.charLiteral lexer
+parens, braces, brackets :: ParserT a -> ParserT a
+-- Parses what's inside the parentheses
+parens = Mega.between (char '(') (char ')')
+-- Parses what's inside braces
+braces = Mega.between (char '{') (char '}')
+-- Parses what's inside brackets
+brackets = Mega.between (char '[') (char ']')
 
-stringLiteral :: Parser String
-stringLiteral = Token.stringLiteral lexer
+-- Parses parser p separated by zero or more commas
+commaSep :: ParserT a -> ParserT [a]
+commaSep p = Mega.sepBy p (symbol ",")
 
-integer :: Parser Integer
-integer = Token.integer lexer
+-- Parses a colon
+colon :: ParserT T.Text
+colon = lexeme (symbol ";")
 
-float :: Parser Double
-float = Token.float lexer
+charLiteral :: ParserT Char
+charLiteral = MegaC.char '\'' *> MegaL.charLiteral <* MegaC.char '\''
 
-reserved :: String -> Parser ()
-reserved str = lexeme (Token.reserved lexer str)
+stringLiteral :: ParserT T.Text
+stringLiteral = T.pack <$> (MegaC.char '"' >> Mega.manyTill p (MegaC.char '"'))
+  where
+    p = Mega.label "valid string literal" $ do
+        Mega.notFollowedBy (MegaC.char '\n')
+        MegaL.charLiteral
+
+integerLiteral :: ParserT Integer
+integerLiteral = MegaL.decimal
+
+floatLiteral :: ParserT Double
+floatLiteral = MegaL.float
+
+
 

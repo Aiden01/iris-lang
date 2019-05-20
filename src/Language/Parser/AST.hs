@@ -1,5 +1,5 @@
 module Language.Parser.AST
-    ( TopLevelStatement(..)
+    ( Statement(..)
     , Lit(..)
     , Expr(..)
     , Program(..)
@@ -10,6 +10,7 @@ where
 
 import           Data.List                      ( intercalate )
 import qualified Data.Map                      as M
+import qualified Data.Text                     as T
 
 
 
@@ -18,7 +19,7 @@ import qualified Data.Map                      as M
 data Lit
     = Number Integer
     | Boolean Bool
-    | Str String
+    | Str T.Text
     | Array [Expr]
     | Char' Char
     | Object (M.Map String Expr)
@@ -26,12 +27,13 @@ data Lit
     deriving (Show)
 
 
+
 data Expr
     = Literal Lit
     | BinOp BinOp Expr Expr
     | UnaryOp UnaryOp Expr
     | Var String
-    | FunctionCallExpr String [Expr]
+    | CallExpr String [Expr]
     deriving (Show)
 
 data UnaryOp
@@ -48,13 +50,13 @@ data BinOp
     | Div
     deriving (Show)
 
-data TopLevelStatement
-    = VariableDeclaration String Expr
-    | FunctionDeclaration String [String] (Maybe Program)
-    | IfCond Expr (Maybe Program)
-    | While Expr (Maybe Program)
-    | FunctionCallTop String [Expr]
+data Statement
+    = VarDecl String Expr
+    | FnDecl String [String] (Maybe Program)
+    | IfStmt Expr (Maybe Program)
+    | WhileStmt Expr (Maybe Program)
+    | CallStmt String [Expr]
     deriving (Show)
 
-data Program = Program [TopLevelStatement]
+data Program = Program [Statement]
     deriving (Show)

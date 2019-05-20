@@ -27,6 +27,7 @@ import           Data.Map                       ( toList )
 import           Data.List                      ( intercalate )
 import           Data.Maybe                     ( fromMaybe )
 import           System.Console.ANSI
+import qualified Data.Text                     as T
 
 green :: Show a => a -> IO ()
 green msg = do
@@ -54,7 +55,7 @@ prettyExpr (BinOp binOp expr1 expr2) =
 prettyExpr (UnaryOp unaryOp expr) =
     text "Unary Op => " <> prettyUnaryOp unaryOp expr
 prettyExpr (Var name) = text "Var " <> text name
-prettyExpr (FunctionCallExpr name args) =
+prettyExpr (CallExpr name args) =
     text "FnCall"
         <+> text name
         <+> text "("
@@ -75,8 +76,8 @@ prettyUnaryOp op expr = text (show op ++ " ( ") <> prettyExpr expr <> text " )"
 
 prettyLit :: Lit -> Doc
 prettyLit (Number  n   ) = text "Int " <> integer n
-prettyLit (Float   f   ) = text "Int " <> double f
-prettyLit (Str     str ) = text "String " <> text str
+prettyLit (Float   f   ) = text "Float " <> double f
+prettyLit (Str     str ) = text "String " <> text (T.unpack str)
 prettyLit (Char'   c   ) = text "Char " <> char c
 prettyLit (Boolean bool) = text "Boolean " <> text (show bool)
 prettyLit (Array exprs) =
@@ -89,11 +90,11 @@ prettyEntry (key, value) = indent 2 $ text key <> text ": " <> prettyExpr value
 
 
 
-prettyStmt :: TopLevelStatement -> Doc
-prettyStmt (VariableDeclaration name expr) =
+prettyStmt :: Statement -> Doc
+prettyStmt (VarDecl name expr) =
     text ("VarDecl " ++ name) <+> text "=" <+> prettyExpr expr
 
-prettyStmt (FunctionDeclaration name args block) =
+prettyStmt (FnDecl name args block) =
     text ("FnDecl " ++ name)
         <+> text "("
         <>  text (intercalate ", " args)

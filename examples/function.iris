@@ -1,8 +1,9 @@
-func add (a, b) {
- 
+
+val a: Int = 5;
+val b: Int = 10;
+
+fn add(a: Int, b: Int): Int {
+    a + b
 }
 
-
-
-val x -> add();
-val y -> add;
+val c: Int = add(a, b);

@@ -21,13 +21,14 @@ description: Please see the README on GitHub at <https://github.com/githubuser/l
 
 dependencies:
   - base >= 4.7 && < 5
-  - parsec
+  - megaparsec
   - containers
   - pretty
   - text
   - optparse-applicative
   - wl-pprint >= 1.2.1
   - ansi-terminal >= 0.9.1
+  - parser-combinators
 
 library:
   source-dirs: src
