@@ -5,13 +5,13 @@ A simple programing language for my own learning
 ## Syntax example
 
 ```
-val obj -> {
+val obj = {
     j: 4,
     foo: 7
 };
 
-func f (a, b)  {
-    val x -> 5;
+fn f (a: Int, b: Int)  {
+    return a + b;
 }
 ```
 
