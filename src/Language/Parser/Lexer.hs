@@ -47,7 +47,7 @@ keyword w = (lexeme . Mega.try)
 
 -- Reserved keywords
 keywords :: S.Set String
-keywords = S.fromList ["func", "val", "if", "while", "True", "False"]
+keywords = S.fromList ["fn", "val", "if", "while", "True", "False"]
 
 -- Parses an identifier
 identifier :: ParserT String
@@ -58,15 +58,14 @@ identifier = (lexeme . Mega.try) (Mega.many MegaC.alphaNumChar >>= check)
         = fail
             $  "Cannot use reserved keyword "
             ++ show x
-            ++ " as an indentifier."
+            ++ " as an identifier."
         | otherwise
         = return x
 
 -- Parses an operator
 operator :: String -> ParserT T.Text
-operator op
-    | op `S.member` operators = (lexeme . Mega.try) (MegaC.string (T.pack op))
-    | otherwise               = fail $ "Unknown operator " ++ op
+operator op | op `S.member` operators = lexeme $ MegaC.string (T.pack op)
+            | otherwise               = fail $ "Unknown operator " ++ op
     where operators = S.fromList ["+", "-", "*", "/"]
 
 -- Parses a char and skips trailling whitespace/comments
@@ -87,7 +86,7 @@ commaSep p = Mega.sepBy p (symbol ",")
 
 -- Parses a colon
 colon :: ParserT T.Text
-colon = lexeme (symbol ";")
+colon = lexeme (symbol ":")
 
 charLiteral :: ParserT Char
 charLiteral = MegaC.char '\'' *> MegaL.charLiteral <* MegaC.char '\''

@@ -10,7 +10,9 @@ import           Language.Parser.Types
 import qualified Data.Map                      as M
 import           Control.Applicative            ( (<|>) )
 import qualified Text.Megaparsec               as Mega
+import qualified Text.Megaparsec.Char          as MegaC
 import           Control.Monad.Combinators.Expr
+import qualified Data.Text                     as T
 
 parseCallExpr :: ParserT Expr
 parseCallExpr = do
@@ -51,7 +53,7 @@ parseObject = do
     return $ Object (M.fromList entries)
   where
     parseObjectEntry = do
-        key <- identifier
+        key <- (lexeme $ Mega.many MegaC.letterChar) Mega.<?> "letters"
         colon
         value <- parseExpr
         return (key, value)
@@ -80,17 +82,18 @@ parseExpr = makeExprParser term opTable
         , [InfixL (operator "or" >> return (BinOp Or))]
         , [InfixL (operator "||" >> return (BinOp Or))]
         , [InfixL (operator "+" >> return (BinOp Add))]
-        , [InfixL (operator "*" >> return (BinOp Mult))]
+        , [InfixL (operator "*" >> space >> return (BinOp Mult))]
         , [InfixL (operator "/" >> return (BinOp Div))]
         , [InfixL (operator "-" >> return (BinOp Sub))]
         ]
 
 term :: ParserT Expr
-term =
-    parens parseExpr
-        <|> Literal
-        <$> parseLiteral
-        <|> Mega.try parseCallExpr
-        <|> Var
-        <$> identifier
+term = lexeme
+    (   parens parseExpr
+    <|> Literal
+    <$> parseLiteral
+    <|> Mega.try parseCallExpr
+    <|> Var
+    <$> identifier
+    )
 

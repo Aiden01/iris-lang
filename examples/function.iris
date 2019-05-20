@@ -1,9 +1,9 @@
 
-val a: Int = 5;
-val b: Int = 10;
+val a = 5;
+val b = 10;
 
-fn add(a: Int, b: Int): Int {
-    a + b
+fn add(a, b) {
+    val x = 4;
 }
 
-val c: Int = add(a, b);
+val c = add(a, b);

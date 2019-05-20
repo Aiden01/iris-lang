@@ -35,10 +35,10 @@ green msg = do
     print msg
     setSGR [Reset]
 
-red :: Show a => a -> IO ()
+red :: String -> IO ()
 red msg = do
     setSGR [SetColor Foreground Vivid Red]
-    print msg
+    putStrLn msg
     setSGR [Reset]
 
 wrapBlock :: Doc -> Doc
@@ -64,15 +64,15 @@ prettyExpr (CallExpr name args) =
 
 prettyBinOp :: BinOp -> Expr -> Expr -> Doc
 prettyBinOp op expr1 expr2 =
-    text (show op ++ " ( ")
+    text (show op ++ " (")
         <> prettyExpr expr1
-        <> text " )"
-        <> text "( "
+        <> text ")"
+        <> text "("
         <> prettyExpr expr2
-        <> text " )"
+        <> text ")"
 
 prettyUnaryOp :: UnaryOp -> Expr -> Doc
-prettyUnaryOp op expr = text (show op ++ " ( ") <> prettyExpr expr <> text " )"
+prettyUnaryOp op expr = text (show op ++ " (") <> prettyExpr expr <> text ")"
 
 prettyLit :: Lit -> Doc
 prettyLit (Number  n   ) = text "Int " <> integer n
