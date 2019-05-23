@@ -8,7 +8,7 @@ val char = 'c';
 val arr = ['h', 'e', 'l', 'l', 'o'];
 
 // integers
-val fn = 500 * 3;
+val f = 500 * 3;
 
 // float
 val float = 5.50;
@@ -18,3 +18,9 @@ val obj = {
     foo:"foo",
     bar: "bar"
 };
+
+if (true) {
+   print("Hello");
+} else {
+  print("Oops");
+}

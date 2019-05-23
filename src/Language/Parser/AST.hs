@@ -53,7 +53,7 @@ data BinOp
 data Statement
     = VarDecl String Expr
     | FnDecl String [String] (Maybe Program)
-    | IfStmt Expr (Maybe Program)
+    | IfStmt Expr (Maybe Program) (Maybe [Statement])
     | WhileStmt Expr (Maybe Program)
     | CallStmt String [Expr]
     deriving (Show)

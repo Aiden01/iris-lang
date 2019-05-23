@@ -17,6 +17,7 @@ import qualified Data.Text                     as T
 parseCallExpr :: ParserT Expr
 parseCallExpr = do
     (fn, params) <- lexeme parseCall
+    symbol ";"
     return (CallExpr fn params)
 
 parseCall :: ParserT (String, [Expr])
@@ -96,4 +97,3 @@ term = lexeme
     <|> Var
     <$> identifier
     )
-

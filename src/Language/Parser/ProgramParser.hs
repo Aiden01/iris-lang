@@ -1,7 +1,7 @@
 module Language.Parser.ProgramParser
-    ( parseProgram
-    , parseCall
-    )
+  ( parseProgram
+  , parseCall
+  )
 where
 
 import           Language.Parser.AST
@@ -17,47 +17,51 @@ parseProgram = Program <$> (space >> Mega.many (lexeme parseStatement))
 
 parseStatement :: ParserT Statement
 parseStatement =
-    Mega.try parseFnDeclStmt
-        <|> parseVarDeclStmt
-        <|> parseIfStmt
-        <|> parseWhileStmt
-        <|> parseCallStmt
+  Mega.try parseFnDeclStmt
+    <|> parseVarDeclStmt
+    <|> parseIfStmt
+    <|> parseWhileStmt
+    <|> parseCallStmt
 
 
 parseFnDeclStmt :: ParserT Statement
 parseFnDeclStmt = do
-    keyword "fn"
-    name   <- identifier
-    params <- parens (commaSep identifier)
-    block  <- braces (Mega.optional parseProgram)
-    return (FnDecl name params block)
+  keyword "fn"
+  name   <- identifier
+  params <- parens (commaSep identifier)
+  block  <- braces (Mega.optional parseProgram)
+  return (FnDecl name params block)
 
 parseCallStmt :: ParserT Statement
 parseCallStmt = do
-    (fn, params) <- lexeme parseCall
-    return (CallStmt fn params)
+  (fn, params) <- lexeme parseCall
+  symbol ";"
+  return (CallStmt fn params)
 
 
 parseIfStmt :: ParserT Statement
 parseIfStmt = do
-    keyword "if"
-    cond  <- parens parseExpr
-    block <- braces (Mega.optional parseProgram)
-    return (IfStmt cond block)
+  keyword "if"
+  cond    <- parens parseExpr
+  block   <- braces (Mega.optional parseProgram)
+  elseStmt <- Mega.optional parseElseStmt
+  return (IfStmt cond block elseStmt)
+ where
+  parseElseStmt :: ParserT [Statement]
+  parseElseStmt = keyword "else" *> braces (Mega.many parseStatement)
 
 parseWhileStmt :: ParserT Statement
 parseWhileStmt = do
-    keyword "while"
-    cond  <- parens parseExpr
-    block <- braces (Mega.optional parseProgram)
-    return (WhileStmt cond block)
+  keyword "while"
+  cond  <- parens parseExpr
+  block <- braces (Mega.optional parseProgram)
+  return (WhileStmt cond block)
 
 parseVarDeclStmt :: ParserT Statement
 parseVarDeclStmt = do
-    keyword "val"
-    name <- identifier
-    symbol "="
-    expr <- parseExpr
-    symbol ";"
-    return (VarDecl name expr)
-
+  keyword "val"
+  name <- identifier
+  symbol "="
+  expr <- parseExpr
+  symbol ";"
+  return (VarDecl name expr)
