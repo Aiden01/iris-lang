@@ -29,6 +29,7 @@ dependencies:
   - wl-pprint >= 1.2.1
   - ansi-terminal >= 0.9.1
   - parser-combinators
+  - mtl
 
 library:
   source-dirs: src

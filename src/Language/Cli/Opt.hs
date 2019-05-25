@@ -8,6 +8,9 @@ import           Options.Applicative
 import           Data.Semigroup                 ( (<>) )
 import           Language.Parser
 import           Control.Monad                  ( forever )
+import           System.IO
+
+
 
 data Opt = Opt
     { file :: Maybe String }
@@ -19,12 +22,17 @@ opt =
 runCli :: IO ()
 runCli = getOpt =<< execParser headerInfo
 
+prompt :: String -> IO String
+prompt text = do
+    putStr text
+    hFlush stdout
+    getLine
+
 getOpt :: Opt -> IO ()
 getOpt (Opt Nothing) = putStrLn "Iris REPL - Version 1.0.0" >>= \_ ->
     forever $ do
-        putStrLn "λ> "
-        stdin <- getContents
-        putStrLn stdin
+        stdin <- prompt "λ> "
+        runIris stdin
 getOpt (Opt (Just file)) = parseFile file
 
 headerInfo :: ParserInfo Opt

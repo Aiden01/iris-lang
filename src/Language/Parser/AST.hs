@@ -1,13 +1,13 @@
 module Language.Parser.AST
-  ( Statement(..)
-  , Lit(..)
-  , Expr(..)
-  , Program(..)
-  , BinOp(..)
-  , UnaryOp(..)
-  , TypeExpr(..)
-  , Param(..)
-  )
+    ( Statement(..)
+    , Lit(..)
+    , Expr(..)
+    , Program(..)
+    , BinOp(..)
+    , UnaryOp(..)
+    , TypeExpr(..)
+    , Param(..)
+    )
 where
 
 import           Data.List                      ( intercalate )
@@ -26,6 +26,7 @@ data Lit
     | Char' Char
     | Object (M.Map String Expr)
     | Float Double
+    | Void
     deriving (Show)
 
 
