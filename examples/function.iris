@@ -1,8 +1,8 @@
 
-val a = 5;
-val b = 10;
+/* val a = 5;
+val b = 10; */
 
-fn add(a, b) {
+fn add(a: Int, b: Int) {
     val x = 4;
 }
 

@@ -1,20 +1,20 @@
 module Language.Parser.Lexer
-    ( lexeme
-    , identifier
-    , space
-    , keyword
-    , parens
-    , commaSep
-    , braces
-    , stringLiteral
-    , charLiteral
-    , integerLiteral
-    , brackets
-    , colon
-    , operator
-    , floatLiteral
-    , symbol
-    )
+  ( lexeme
+  , identifier
+  , space
+  , keyword
+  , parens
+  , commaSep
+  , braces
+  , stringLiteral
+  , charLiteral
+  , integerLiteral
+  , brackets
+  , colon
+  , operator
+  , floatLiteral
+  , symbol
+  )
 where
 
 
@@ -40,10 +40,11 @@ skipBlockComment = MegaL.skipBlockComment (T.pack "/*") (T.pack "*/")
 symbol :: String -> ParserT T.Text
 symbol = MegaL.symbol space . T.pack
 
+
 -- Parses a keyword
 keyword :: String -> ParserT ()
 keyword w = (lexeme . Mega.try)
-    (MegaC.string (T.pack w) *> Mega.notFollowedBy MegaC.alphaNumChar)
+  (MegaC.string (T.pack w) *> Mega.notFollowedBy MegaC.alphaNumChar)
 
 -- Reserved keywords
 keywords :: S.Set String
@@ -52,21 +53,18 @@ keywords = S.fromList ["fn", "val", "if", "while", "True", "False"]
 -- Parses an identifier
 identifier :: ParserT String
 identifier = (lexeme . Mega.try) (Mega.many MegaC.alphaNumChar >>= check)
-  where
-    check x
-        | x `S.member` keywords
-        = fail
-            $  "Cannot use reserved keyword "
-            ++ show x
-            ++ " as an identifier."
-        | otherwise
-        = return x
+ where
+  check x
+    | x `S.member` keywords
+    = fail $ "Cannot use reserved keyword " ++ show x ++ " as an identifier."
+    | otherwise
+    = return x
 
 -- Parses an operator
 operator :: String -> ParserT T.Text
 operator op | op `S.member` operators = lexeme $ MegaC.string (T.pack op)
             | otherwise               = fail $ "Unknown operator " ++ op
-    where operators = S.fromList ["+", "-", "*", "/"]
+  where operators = S.fromList ["+", "-", "*", "/"]
 
 -- Parses a char and skips trailling whitespace/comments
 char :: Char -> ParserT Char
@@ -93,16 +91,13 @@ charLiteral = MegaC.char '\'' *> MegaL.charLiteral <* MegaC.char '\''
 
 stringLiteral :: ParserT T.Text
 stringLiteral = T.pack <$> (MegaC.char '"' >> Mega.manyTill p (MegaC.char '"'))
-  where
-    p = Mega.label "valid string literal" $ do
-        Mega.notFollowedBy (MegaC.char '\n')
-        MegaL.charLiteral
+ where
+  p = Mega.label "valid string literal" $ do
+    Mega.notFollowedBy (MegaC.char '\n')
+    MegaL.charLiteral
 
 integerLiteral :: ParserT Integer
 integerLiteral = MegaL.decimal
 
 floatLiteral :: ParserT Double
 floatLiteral = MegaL.float
-
-
-

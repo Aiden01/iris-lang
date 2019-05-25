@@ -1,11 +1,13 @@
 module Language.Parser.AST
-    ( Statement(..)
-    , Lit(..)
-    , Expr(..)
-    , Program(..)
-    , BinOp(..)
-    , UnaryOp(..)
-    )
+  ( Statement(..)
+  , Lit(..)
+  , Expr(..)
+  , Program(..)
+  , BinOp(..)
+  , UnaryOp(..)
+  , TypeExpr(..)
+  , Param(..)
+  )
 where
 
 import           Data.List                      ( intercalate )
@@ -50,9 +52,20 @@ data BinOp
     | Div
     deriving (Show)
 
+data TypeExpr
+  = TInt
+  | TString
+  | TChar
+  | TFloat
+  | VarT String
+  deriving (Show)
+
+data Param = Param String TypeExpr
+  deriving (Show)
+
 data Statement
-    = VarDecl String Expr
-    | FnDecl String [String] (Maybe Program)
+    = VarDecl String (Maybe TypeExpr) Expr
+    | FnDecl String [Param] (Maybe Program)
     | IfStmt Expr (Maybe Program) (Maybe [Statement])
     | WhileStmt Expr (Maybe Program)
     | CallStmt String [Expr]
