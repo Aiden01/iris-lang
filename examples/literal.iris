@@ -8,7 +8,7 @@ val char = 'c';
 val arr = ['h', 'e', 'l', 'l', 'o'];
 
 // integers
-val f = 500 * 3;
+val f: Int = 500 * 3;
 
 // float
 val float = 5.50;

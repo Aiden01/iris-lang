@@ -108,8 +108,8 @@ parseTypeExpr =
     )
     Mega.<?> "type expression"
 
-tInt = symbol "Int" *> pure TInt
-tString = symbol "String" *> pure TString
-tChar = symbol "Int" *> pure TChar
-tFloat = symbol "Int" *> pure TFloat
+tInt = keyword "Int" *> pure TInt
+tString = keyword "String" *> pure TString
+tChar = keyword "Int" *> pure TChar
+tFloat = keyword "Int" *> pure TFloat
 varT = VarT <$> identifier

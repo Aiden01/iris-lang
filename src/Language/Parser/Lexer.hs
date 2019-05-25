@@ -48,12 +48,25 @@ keyword w = (lexeme . Mega.try)
 
 -- Reserved keywords
 keywords :: S.Set String
-keywords = S.fromList ["fn", "val", "if", "while", "True", "False"]
+keywords = S.fromList
+  [ "fn"
+  , "val"
+  , "if"
+  , "while"
+  , "True"
+  , "False"
+  , "else"
+  , "Int"
+  , "String"
+  , "Char"
+  , "Float"
+  ]
 
 -- Parses an identifier
 identifier :: ParserT String
-identifier = (lexeme . Mega.try) (Mega.many MegaC.alphaNumChar >>= check)
+identifier = (lexeme . Mega.try) (p >>= check)
  where
+  p = (:) <$> MegaC.letterChar <*> Mega.many MegaC.alphaNumChar
   check x
     | x `S.member` keywords
     = fail $ "Cannot use reserved keyword " ++ show x ++ " as an identifier."
