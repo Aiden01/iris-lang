@@ -1,6 +1,5 @@
 module Language.Parser
-    ( parseFile
-    , parseBuffer
+    ( parseBuffer
     , runIris
     )
 where
@@ -15,10 +14,12 @@ import           Data.Text                      ( Text )
 import           Language.Parser.AST
 
 runIris :: String -> IO ()
-runIris = print . parseBuffer . T.pack
+runIris = parseBuffer . T.pack
 
-parseBuffer :: T.Text -> Either (ParseErrorBundle Text Void) Program
-parseBuffer contents = parse (parseProgram <* eof) "" contents
-
-parseFile :: String -> IO ()
+parseBuffer :: T.Text -> IO ()
+parseBuffer contents = case parse (parseProgram <* eof) "" contents of
+    Left  e   -> red $ errorBundlePretty $ e
+    Right ast -> green (prettyProgram ast)
+{-parseFile :: String -> IO ()
 parseFile path = T.pack <$> readFile path >>= print . parseBuffer
+-}

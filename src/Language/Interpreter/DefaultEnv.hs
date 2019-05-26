@@ -11,6 +11,16 @@ import           Control.Monad.Except           ( ExceptT
 import           Control.Monad.Trans            ( lift )
 import qualified Data.Map                      as M
 
+makeTruthy :: Value -> Bool
+makeTruthy = \case
+    VBool   False -> False
+    VInt    0     -> False
+    VFloat  0.0   -> False
+    VString []    -> False
+    VList   []    -> False
+    VoidV         -> False
+    _             -> True
+
 defaultEnv :: Scope Value
 defaultEnv = M.fromList
     [ ("+"    , addV)
@@ -26,52 +36,40 @@ defaultEnv = M.fromList
     , ("print", printV)
     ]
   where
-    addV = BFn $ \a b -> case (a, b) of
+    addV = Fn $ \([a, b]) -> case (a, b) of
         (VInt   x, VInt y  ) -> return $ VInt (x + y)
         (VInt   x, VFloat y) -> return $ VFloat (fromInteger x + y)
         (VFloat x, VInt y  ) -> return $ VFloat (x + fromInteger y)
         (VFloat x, VFloat y) -> return $ VFloat (x + y)
-        _                    -> throwError "Expected Integer or Float"
-    subV = BFn $ \a b -> case (a, b) of
+        _                    -> throwError $ Custom "Expected Integer or Float"
+    subV = Fn $ \([a, b]) -> case (a, b) of
         (VInt   x, VInt y  ) -> return $ VInt (x - y)
         (VInt   x, VFloat y) -> return $ VFloat (fromInteger x - y)
         (VFloat x, VInt y  ) -> return $ VFloat (x - fromInteger y)
         (VFloat x, VFloat y) -> return $ VFloat (x - y)
-        _                    -> throwError "Expected Integer or Float"
-    divV = BFn $ \a b -> case (a, b) of
+        _                    -> throwError $ Custom "Expected Integer or Float"
+    divV = Fn $ \([a, b]) -> case (a, b) of
         (VInt   x, VInt y  ) -> return $ VFloat (fromInteger x / fromInteger y)
         (VInt   x, VFloat y) -> return $ VFloat (fromInteger x / y)
         (VFloat x, VInt y  ) -> return $ VFloat (x / fromInteger y)
         (VFloat x, VFloat y) -> return $ VFloat (x / y)
-        _                    -> throwError "Expected Integer or Float"
-    multV = BFn $ \a b -> case (a, b) of
+        _                    -> throwError $ Custom "Expected Integer or Float"
+    multV = Fn $ \([a, b]) -> case (a, b) of
         (VInt   x, VInt y  ) -> return $ VInt (x * y)
         (VInt   x, VFloat y) -> return $ VFloat (fromInteger x * y)
         (VFloat x, VInt y  ) -> return $ VFloat (x * fromInteger y)
         (VFloat x, VFloat y) -> return $ VFloat (x * y)
-        _                    -> throwError "Expected Integer or Float"
-    andV = BFn $ \a b -> case (a, b) of
-        (VBool True , VBool True ) -> return $ VBool True
-        (VBool False, VBool False) -> return $ VBool False
-        (VBool False, VBool True ) -> return $ VBool False
-        (VBool True , VBool False) -> return $ VBool False
-        _                          -> throwError "Expected boolean"
+        _                    -> throwError $ Custom "Expected Integer or Float"
+    andV = Fn $ \([a, b]) -> return $ VBool (makeTruthy a && makeTruthy b)
 
-    orV = BFn $ \a b -> case (a, b) of
-        (VBool True , VBool True ) -> return $ VBool True
-        (VBool False, VBool False) -> return $ VBool False
-        (VBool False, VBool True ) -> return $ VBool True
-        (VBool True , VBool False) -> return $ VBool True
-        _                          -> throwError "Expected boolean"
-    negV = Fn $ \x -> case x of
+    orV  = Fn $ \([a, b]) -> return $ VBool (makeTruthy a || makeTruthy b)
+
+    negV = Fn $ \([x]) -> case x of
         VInt   x -> return $ VInt (negate x)
         VFloat x -> return $ VFloat (negate x)
-        _        -> throwError "Expected Integer or Float"
+        _        -> throwError $ Custom "Expected Integer or Float"
 
-    notV = Fn $ \x -> case x of
-        VBool True  -> return $ VBool False
-        VBool False -> return $ VBool True
-        _           -> throwError "Expected boolean"
+    notV   = Fn $ \([x]) -> return $ VBool (not $ makeTruthy x)
 
-    printV = Fn $ \x -> lift (print x) >> return VoidV
+    printV = Fn $ \([x]) -> lift (print x) >> return VoidV
 

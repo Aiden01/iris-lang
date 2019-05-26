@@ -90,9 +90,9 @@ parseExpr = makeExprParser term opTable
 
 term :: ParserT Expr
 term = lexeme
-    (   parens parseExpr
-    <|> Literal
-    <$> parseLiteral
+    (   Literal
+    <$> Mega.try parseLiteral
+    <|> parens parseExpr
     <|> Mega.try parseCallExpr
     <|> Var
     <$> identifier

@@ -5,7 +5,7 @@ val str = "Hello, world";
 val char = 'c';
 
 // array
-val arr = ['h', 'e', 'l', 'l', 'o'];
+val arr = 1 && 1;
 
 // integers
 val f: Int = 500 * 3;
