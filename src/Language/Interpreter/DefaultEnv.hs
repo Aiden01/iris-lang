@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Language.Interpreter.DefaultEnv
     ( defaultEnv
+    , makeTruthy
     )
 where
 
@@ -10,6 +11,7 @@ import           Control.Monad.Except           ( ExceptT
                                                 )
 import           Control.Monad.Trans            ( lift )
 import qualified Data.Map                      as M
+import           Text.Read                      ( readMaybe )
 
 makeTruthy :: Value -> Bool
 makeTruthy = \case
@@ -27,6 +29,7 @@ defaultEnv = M.fromList
     , ("-"    , subV)
     , ("/"    , divV)
     , ("*"    , multV)
+    , ("^"    , powV)
     , ("and"  , andV)
     , ("&&"   , andV)
     , ("or"   , orV)
@@ -34,6 +37,9 @@ defaultEnv = M.fromList
     , ("neg"  , negV)
     , ("!"    , notV)
     , ("print", printV)
+    , ("str"  , strV)
+    , ("int"  , intV)
+    , ("bool" , boolV)
     ]
   where
     addV = Fn $ \([a, b]) -> case (a, b) of
@@ -60,6 +66,12 @@ defaultEnv = M.fromList
         (VFloat x, VInt y  ) -> return $ VFloat (x * fromInteger y)
         (VFloat x, VFloat y) -> return $ VFloat (x * y)
         _                    -> throwError $ Custom "Expected Integer or Float"
+    powV = Fn $ \([a, b]) -> case (a, b) of
+        (VInt   x, VInt y  ) -> return $ VInt (x ^ y)
+        (VInt   x, VFloat y) -> return $ VInt (x ^ round y)
+        (VFloat x, VInt y  ) -> return $ VInt (round x ^ y)
+        (VFloat x, VFloat y) -> return $ VInt (round x ^ round y)
+        _                    -> throwError $ Custom "Expected Integer or Float"
     andV = Fn $ \([a, b]) -> return $ VBool (makeTruthy a && makeTruthy b)
 
     orV  = Fn $ \([a, b]) -> return $ VBool (makeTruthy a || makeTruthy b)
@@ -72,4 +84,23 @@ defaultEnv = M.fromList
     notV   = Fn $ \([x]) -> return $ VBool (not $ makeTruthy x)
 
     printV = Fn $ \([x]) -> lift (print x) >> return VoidV
+    strV   = Fn $ \([x]) -> return $ VString $ show x
+    intV   = Fn $ \([x]) -> case x of
+        y@(VInt _)  -> return y
+        VFloat  y   -> return $ VInt $ round y
+        VString str -> case readMaybe str of
+            Just y -> return $ VInt y
+            Nothing ->
+                throwError
+                    $  Custom
+                    $  "Cannot convert "
+                    <> str
+                    <> " to an integer"
 
+        _ ->
+            throwError
+                $  Custom
+                $  "Cannot convert "
+                <> show x
+                <> " to an integer"
+    boolV = Fn $ \([x]) -> return $ VBool $ makeTruthy x
