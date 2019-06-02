@@ -1,5 +1,10 @@
-val x = 0;
-while(x < 10) {
-    print("X = " ++ str(x));
-    x = x + 1;
+val x = 4;
+print(x);
+
+fn add(a, b) {
+    print("Hello!!");
+    return a + b;
 }
+
+val y = add(5, 10);
+print(y);

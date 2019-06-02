@@ -23,6 +23,10 @@ parseStatement =
         <|> parseWhileStmt
         <|> parseCallStmt
 
+parseReturnStatement :: ParserT Statement
+parseReturnStatement =
+    ReturnStmt <$> (keyword "return" *> parseExpr <* symbol ";")
+
 
 parseAssignStmt :: ParserT Statement
 parseAssignStmt = do
@@ -37,7 +41,10 @@ parseFnDeclStmt = do
     keyword "fn"
     name   <- identifier
     params <- parens (commaSep param)
-    block  <- braces (Mega.optional parseProgram)
+    block  <-
+        (braces $ Mega.optional $ Mega.many $ lexeme
+            (parseStatement <|> parseReturnStatement)
+        )
     return (FnDecl name params block)
   where
     param :: ParserT Param

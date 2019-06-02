@@ -29,8 +29,9 @@ evalExpr (BinOp op expr expr') env = do
     x <- evalExpr expr env
     y <- evalExpr expr' env
     evalBinOp env op x y
-evalExpr (UnaryOp op expr) env = evalExpr expr env >>= evalUOp env op
-evalExpr (Var x          ) env = case M.lookup x env of
+evalExpr (UnaryOp  op   expr) env = evalExpr expr env >>= evalUOp env op
+evalExpr (AttrExpr expr attr) env = evalExpr expr env >>= evalAttrExpr env attr
+evalExpr (Var x             ) env = case M.lookup x env of
     Just val -> return val
     Nothing  -> throwError $ Unbound x
 evalExpr (CallExpr name args) env = case M.lookup name env of
@@ -41,6 +42,9 @@ evalExpr (CallExpr name args) env = case M.lookup name env of
 
 getOp :: Scope Value -> String -> [Value] -> VResult
 getOp env op = let (Fn fn) = env ! op in fn
+
+evalAttrExpr :: Scope Value -> String -> Value -> VResult
+evalAttrExpr env attr expr = getOp env "." [expr, VString attr]
 
 evalBinOp :: Scope Value -> BinOp -> Value -> Value -> VResult
 evalBinOp env Add    x y = getOp env "+" [x, y]

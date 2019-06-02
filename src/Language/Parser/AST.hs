@@ -36,6 +36,7 @@ data Expr
     | BinOp BinOp Expr Expr
     | UnaryOp UnaryOp Expr
     | Var String
+    | AttrExpr Expr String
     | CallExpr String [Expr]
     deriving (Show)
 
@@ -69,11 +70,12 @@ data Param = Param String (Maybe TypeExpr)
 
 data Statement
     = VarDecl String (Maybe TypeExpr) Expr
-    | FnDecl String [Param] (Maybe Program)
+    | FnDecl String [Param] (Maybe [Statement])
     | IfStmt Expr  [Statement]  (Maybe [Statement])
     | WhileStmt Expr (Maybe Program)
     | CallStmt String [Expr]
     | Assign String Expr
+    | ReturnStmt Expr
     deriving (Show)
 
 data Program = Program [Statement]

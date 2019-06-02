@@ -42,6 +42,8 @@ defaultEnv = M.fromList
     , ("bool" , boolV)
     , ("<"    , lowerV)
     , ("++"   , concatV)
+    , ("."    , attrV)
+    , ("len"  , lenV)
     ]
   where
     addV = Fn $ \([a, b]) -> case (a, b) of
@@ -114,4 +116,15 @@ defaultEnv = M.fromList
         _                      -> throwError $ Custom "Mismatched types"
     concatV = Fn $ \([x, y]) -> case (x, y) of
         (VString a, VString b) -> return $ VString (a <> b)
+        (VList   a, VList b  ) -> return $ VList (a <> b)
         _                      -> throwError $ Custom "Mismatched types"
+    attrV = Fn $ \([x, y]) -> case (x, y) of
+        (VObject obj, VString attr) -> case M.lookup attr obj of
+            Just val -> return val
+            Nothing  -> throwError $ Custom $ "Object has to attribute " <> attr
+        _ -> throwError $ Custom "Mismatched types"
+
+    lenV = Fn $ \([x]) -> case x of
+        VString str -> return $ VInt $ toInteger (length str)
+        VList   xs  -> return $ VInt $ toInteger (length xs)
+        _           -> throwError $ Custom "Mismatched types"

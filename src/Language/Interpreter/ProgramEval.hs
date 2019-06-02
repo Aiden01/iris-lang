@@ -10,6 +10,8 @@ import           Language.Interpreter.Types
 import           Control.Monad.Except           ( ExceptT
                                                 , throwError
                                                 )
+import           Data.Maybe                     ( fromMaybe )
+import qualified Data.Map                      as M
 
 type EnvResult = ExceptT VError IO (Scope Value)
 
@@ -18,8 +20,15 @@ evalProgram (Program []   ) env = return env
 evalProgram (Program stmts) env = evalStatements stmts env
 
 evalStatements :: [Statement] -> Scope Value -> EnvResult
-evalStatements []             env = return env
-evalStatements (stmt : stmts) env = evalStatements stmts =<< evalStmt stmt env
+evalStatements [] env = return env
+evalStatements stmts env =
+    foldl (\env' stmt -> evalStmt stmt =<< env') (return env) stmts
+
+evalFnStatements :: [Statement] -> Scope Value -> VResult
+evalFnStatements []                      _   = return VoidV
+evalFnStatements ((ReturnStmt expr) : _) env = evalExpr expr env
+evalFnStatements (stmt : stmts) env =
+    evalFnStatements stmts =<< evalStmt stmt env
 
 evalStmt :: Statement -> Scope Value -> EnvResult
 evalStmt (VarDecl name _ expr) env = do
@@ -50,3 +59,24 @@ evalStmt (WhileStmt cond p) env = do
         (True , Just stmts) -> evalProgram stmts env >>= evalStmt stmt
         (True , Nothing   ) -> evalStmt stmt env
         (False, _         ) -> return env
+evalStmt (FnDecl name paramsT p) env =
+    let params = map (\(Param s _) -> s) paramsT
+        block  = fromMaybe [] p
+        fn     = Fn (\args -> invokeFn block env args params)
+    in  return $ insert name fn env
+  where
+    invokeFn :: [Statement] -> Scope Value -> [Value] -> [String] -> VResult
+    invokeFn stmts env given expected = if length given == length expected
+        then do
+            let fnEnv = foldr (\(name, value) env -> insert name value env)
+                              (M.fromList [])
+                              (zip expected given)
+            evalFnStatements stmts (M.union fnEnv env)
+        else
+            throwError
+            $  Custom
+            $  "Expected "
+            <> show (length expected)
+            <> " arguments but "
+            <> show (length given)
+            <> " were given"
