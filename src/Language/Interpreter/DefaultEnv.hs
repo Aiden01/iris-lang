@@ -40,11 +40,13 @@ defaultEnv = M.fromList
     , ("str"  , strV)
     , ("int"  , intV)
     , ("bool" , boolV)
+    , ("<"    , lowerV)
+    , ("++"   , concatV)
     ]
   where
     addV = Fn $ \([a, b]) -> case (a, b) of
-        (VInt   x, VInt y  ) -> return $ VInt (x + y)
-        (VInt   x, VFloat y) -> return $ VFloat (fromInteger x + y)
+        (VInt   x, VInt y  ) -> return $ (VInt (x + y))
+        (VInt   x, VFloat y) -> return $ (VFloat (fromInteger x + y))
         (VFloat x, VInt y  ) -> return $ VFloat (x + fromInteger y)
         (VFloat x, VFloat y) -> return $ VFloat (x + y)
         _                    -> throwError $ Custom "Expected Integer or Float"
@@ -103,4 +105,13 @@ defaultEnv = M.fromList
                 $  "Cannot convert "
                 <> show x
                 <> " to an integer"
-    boolV = Fn $ \([x]) -> return $ VBool $ makeTruthy x
+    boolV  = Fn $ \([x]) -> return $ VBool $ makeTruthy x
+    lowerV = Fn $ \([x, y]) -> case (x, y) of
+        (VInt    a, VInt b   ) -> return $ VBool $ a < b
+        (VFloat  a, VFloat b ) -> return $ VBool $ a < b
+        (VString a, VString b) -> return $ VBool $ a < b
+        (VChar   a, VChar b  ) -> return $ VBool $ a < b
+        _                      -> throwError $ Custom "Mismatched types"
+    concatV = Fn $ \([x, y]) -> case (x, y) of
+        (VString a, VString b) -> return $ VString (a <> b)
+        _                      -> throwError $ Custom "Mismatched types"

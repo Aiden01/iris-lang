@@ -1,0 +1,5 @@
+val x = 0;
+while(x < 10) {
+    print("X = " ++ str(x));
+    x = x + 1;
+}

@@ -80,7 +80,9 @@ identifier = (lexeme . Mega.try) (p >>= check)
 operator :: String -> ParserT T.Text
 operator op | op `S.member` operators = lexeme $ MegaC.string (T.pack op)
             | otherwise               = fail $ "Unknown operator " ++ op
-    where operators = S.fromList ["+", "-", "*", "/", "&&", "and", "or", "||"]
+  where
+    operators =
+        S.fromList ["+", "-", "*", "/", "&&", "and", "or", "||", "^", "<", "++"]
 
 -- Parses a char and skips trailling whitespace/comments
 char :: Char -> ParserT Char

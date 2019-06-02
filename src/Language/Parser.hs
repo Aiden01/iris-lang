@@ -19,7 +19,7 @@ runIris = parseBuffer . T.pack
 parseBuffer :: T.Text -> IO ()
 parseBuffer contents = case parse (parseProgram <* eof) "" contents of
     Left  e   -> red $ errorBundlePretty $ e
-    Right ast -> green (prettyProgram ast)
+    Right ast -> green ast
 {-parseFile :: String -> IO ()
 parseFile path = T.pack <$> readFile path >>= print . parseBuffer
 -}

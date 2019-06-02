@@ -18,7 +18,7 @@ import qualified Data.Text                     as T
 parseCallExpr :: ParserT Expr
 parseCallExpr = do
     (fn, params) <- lexeme parseCall
-    return (CallExpr fn params)
+    return $ CallExpr fn params
 
 parseCall :: ParserT (String, [Expr])
 parseCall = do
@@ -60,15 +60,22 @@ parseObject = do
         return (key, value)
 
 
-parseLiteral :: ParserT Lit
-parseLiteral =
-    parseChar
-        <|> parseString
-        <|> Mega.try parseFloat
-        <|> parseInt
-        <|> parseArray
-        <|> parseObject
-        <|> parseBool
+parseLiteral :: ParserT Expr
+parseLiteral = Literal <$> litParser
+  where
+    litParser :: ParserT Lit
+    litParser =
+        parseChar
+            <|> parseString
+            <|> Mega.try parseFloat
+            <|> parseInt
+            <|> parseArray
+            <|> parseObject
+            <|> parseBool
+
+parseVarExpr :: ParserT Expr
+parseVarExpr = Var <$> identifier
+
 
 
 
@@ -82,20 +89,22 @@ parseExpr = makeExprParser term opTable
         , [InfixL (operator "&&" >> return (BinOp And))]
         , [InfixL (operator "or" >> return (BinOp Or))]
         , [InfixL (operator "||" >> return (BinOp Or))]
-        , [InfixL (operator "+" >> return (BinOp Add))]
-        , [InfixL (operator "*" >> space >> return (BinOp Mult))]
+        , [InfixL (operator "^" >> return (BinOp Pow))]
+        , [InfixL (operator "*" >> return (BinOp Mult))]
         , [InfixL (operator "/" >> return (BinOp Div))]
+        , [InfixL (operator "++" >> return (BinOp Concat))]
+        , [InfixL (operator "+" >> return (BinOp Add))]
         , [InfixL (operator "-" >> return (BinOp Sub))]
+        , [InfixL (operator "<" >> return (BinOp Lower))]
         ]
+
 
 term :: ParserT Expr
 term = lexeme
-    (   Literal
-    <$> Mega.try parseLiteral
+    (   Mega.try parseLiteral
     <|> parens parseExpr
     <|> Mega.try parseCallExpr
-    <|> Var
-    <$> identifier
+    <|> parseVarExpr
     )
 
 parseTypeExpr, tInt, tString, tChar, tFloat, varT :: ParserT TypeExpr

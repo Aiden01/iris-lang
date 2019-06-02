@@ -13,7 +13,7 @@ where
 import           Data.List                      ( intercalate )
 import qualified Data.Map                      as M
 import qualified Data.Text                     as T
-
+import           Text.Megaparsec
 
 
 
@@ -51,6 +51,9 @@ data BinOp
     | And
     | Or
     | Div
+    | Pow
+    | Lower
+    | Concat
     deriving (Show)
 
 data TypeExpr
@@ -61,15 +64,16 @@ data TypeExpr
   | VarT String
   deriving (Show)
 
-data Param = Param String TypeExpr
+data Param = Param String (Maybe TypeExpr)
   deriving (Show)
 
 data Statement
     = VarDecl String (Maybe TypeExpr) Expr
     | FnDecl String [Param] (Maybe Program)
-    | IfStmt Expr (Maybe Program) (Maybe [Statement])
+    | IfStmt Expr  [Statement]  (Maybe [Statement])
     | WhileStmt Expr (Maybe Program)
     | CallStmt String [Expr]
+    | Assign String Expr
     deriving (Show)
 
 data Program = Program [Statement]
