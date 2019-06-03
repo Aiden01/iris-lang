@@ -12,9 +12,10 @@ import           Text.Megaparsec.Error
 import           Control.Monad.Except           ( runExceptT
                                                 , throwError
                                                 , ExceptT
+                                                , liftIO
                                                 )
 import qualified Data.Text                     as T
-import           Data.Map                      as M
+import qualified Data.Map                      as M
 import           Data.Map                       ( (!) )
 import           Data.Void                      ( Void )
 import           Data.Text                      ( Text )
@@ -41,6 +42,25 @@ evalExpr (CallExpr name args) env = case M.lookup name env of
         args <- mapM (flip evalExpr env) args
         fn args
     Nothing -> throwError $ Unbound name
+
+evalExpr (Lambda params expr) env =
+    return $ Fn $ (\args -> invokeFn expr args params env)
+invokeFn :: Expr -> [Value] -> [String] -> Scope Value -> VResult
+invokeFn expr given expected env = if length given == length expected
+    then do
+        let fnEnv = foldr
+                (\(name, value) env -> insert name value env :: Scope Value)
+                env
+                (zip expected given)
+        evalExpr expr fnEnv
+    else
+        throwError
+        $  Custom
+        $  "Expected "
+        <> show (length expected)
+        <> " arguments but "
+        <> show (length given)
+        <> " were given"
 
 getOp :: Scope Value -> String -> [Value] -> VResult
 getOp env op = let (Fn fn) = env ! op in fn

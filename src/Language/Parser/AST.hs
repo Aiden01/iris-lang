@@ -39,6 +39,7 @@ data Expr
     | AttrExpr Expr String
     | CallExpr String [Expr]
     | ArrayIndex Expr Integer
+    | Lambda [String] Expr
     deriving (Show)
 
 data UnaryOp

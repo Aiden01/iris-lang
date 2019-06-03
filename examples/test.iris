@@ -1,6 +1,4 @@
-fn sqrt(n) {
-    return n ^ (1/2);
-}
+val sqrt = (n) -> n ^ (1 / 2);
 
 print("sqrt of 61 = " ++ (str(sqrt(64))));
 print("Hello, world");

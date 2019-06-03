@@ -76,6 +76,13 @@ parseLiteral = Literal <$> litParser
 parseVarExpr :: ParserT Expr
 parseVarExpr = Var <$> identifier
 
+parseLambda :: ParserT Expr
+parseLambda = do
+    params <- parens (commaSep identifier)
+    _      <- symbol "->"
+    expr   <- parseExpr
+    return $ Lambda params expr
+
 
 parseExpr :: ParserT Expr
 parseExpr = makeExprParser term opTable
@@ -101,10 +108,11 @@ parseExpr = makeExprParser term opTable
 
 term :: ParserT Expr
 term = lexeme
-    (   Mega.try parseLiteral
+    (   Mega.try parseLambda
+    <|> Mega.try parseLiteral
     <|> parens parseExpr
     <|> Mega.try parseCallExpr
-    <|> Mega.try parseVarExpr
+    <|> parseVarExpr
     )
 
 parseTypeExpr, tInt, tString, tChar, tFloat, varT :: ParserT TypeExpr
