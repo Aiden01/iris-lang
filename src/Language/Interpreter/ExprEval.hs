@@ -31,7 +31,9 @@ evalExpr (BinOp op expr expr') env = do
     evalBinOp env op x y
 evalExpr (UnaryOp  op   expr) env = evalExpr expr env >>= evalUOp env op
 evalExpr (AttrExpr expr attr) env = evalExpr expr env >>= evalAttrExpr env attr
-evalExpr (Var x             ) env = case M.lookup x env of
+evalExpr (ArrayIndex expr index) env =
+    evalExpr expr env >>= evalArrayIndex index
+evalExpr (Var x) env = case M.lookup x env of
     Just val -> return val
     Nothing  -> throwError $ Unbound x
 evalExpr (CallExpr name args) env = case M.lookup name env of
@@ -46,13 +48,17 @@ getOp env op = let (Fn fn) = env ! op in fn
 evalAttrExpr :: Scope Value -> String -> Value -> VResult
 evalAttrExpr env attr expr = getOp env "." [expr, VString attr]
 
+evalArrayIndex :: Integer -> Value -> VResult
+evalArrayIndex index (VList array) = return $ array !! (fromInteger index)
+evalArrayIndex _     _             = throwError $ Custom "Mismatched types"
+
 evalBinOp :: Scope Value -> BinOp -> Value -> Value -> VResult
 evalBinOp env Add    x y = getOp env "+" [x, y]
 evalBinOp env Sub    x y = getOp env "-" [x, y]
 evalBinOp env Mult   x y = getOp env "*" [x, y]
 evalBinOp env Pow    x y = getOp env "^" [x, y]
-evalBinOp env And    x y = getOp env "and" [x, y]
-evalBinOp env Or     x y = getOp env "or" [x, y]
+evalBinOp env And    x y = getOp env "&&" [x, y]
+evalBinOp env Or     x y = getOp env "||" [x, y]
 evalBinOp env Div    x y = getOp env "/" [x, y]
 evalBinOp env Lower  x y = getOp env "<" [x, y]
 evalBinOp env Concat x y = getOp env "++" [x, y]

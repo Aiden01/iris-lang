@@ -38,6 +38,7 @@ data Expr
     | Var String
     | AttrExpr Expr String
     | CallExpr String [Expr]
+    | ArrayIndex Expr Integer
     deriving (Show)
 
 data UnaryOp

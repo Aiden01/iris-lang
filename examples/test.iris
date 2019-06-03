@@ -1,10 +1,5 @@
-val x = 4;
-print(x);
-
-fn add(a, b) {
-    print("Hello!!");
-    return a + b;
+fn sqrt(n) {
+    return n ^ (1/2);
 }
 
-val y = add(5, 10);
-print(y);
+print("sqrt of 61 = " ++ (str(sqrt(64))));

@@ -9,7 +9,7 @@ import           Data.Semigroup                 ( (<>) )
 import           Language.Parser
 import           Control.Monad                  ( forever )
 import           System.IO
-
+import           Language.Interpreter
 
 
 data Opt = Opt
@@ -33,7 +33,7 @@ getOpt (Opt Nothing) = putStrLn "Iris REPL - Version 1.0.0" >>= \_ ->
     forever $ do
         stdin <- prompt "λ> "
         runIris stdin
---getOpt (Opt (Just file)) = parseFile file
+getOpt (Opt (Just file)) = readFile file >>= eval
 
 headerInfo :: ParserInfo Opt
 headerInfo = info

@@ -77,19 +77,18 @@ parseVarExpr :: ParserT Expr
 parseVarExpr = Var <$> identifier
 
 
-
-
 parseExpr :: ParserT Expr
 parseExpr = makeExprParser term opTable
   where
     opTable =
         [ [InfixL (operator "++" >> return (BinOp Concat))]
+        , [ Postfix
+                (operator "at" >>= return (flip ArrayIndex <$> integerLiteral))
+          ]
         , [Postfix (operator "." >>= return (flip AttrExpr <$> identifier))]
         , [Prefix (operator "-" >> return (UnaryOp Negate))]
         , [Prefix (operator "not" >> return (UnaryOp Not))]
-        , [InfixL (operator "and" >> return (BinOp And))]
         , [InfixL (operator "&&" >> return (BinOp And))]
-        , [InfixL (operator "or" >> return (BinOp Or))]
         , [InfixL (operator "||" >> return (BinOp Or))]
         , [InfixL (operator "^" >> return (BinOp Pow))]
         , [InfixL (operator "*" >> return (BinOp Mult))]
@@ -105,7 +104,7 @@ term = lexeme
     (   Mega.try parseLiteral
     <|> parens parseExpr
     <|> Mega.try parseCallExpr
-    <|> parseVarExpr
+    <|> Mega.try parseVarExpr
     )
 
 parseTypeExpr, tInt, tString, tChar, tFloat, varT :: ParserT TypeExpr

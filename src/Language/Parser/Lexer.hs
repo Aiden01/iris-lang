@@ -83,7 +83,7 @@ operator op | op `S.member` operators = lexeme $ MegaC.string (T.pack op)
             | otherwise               = fail $ "Unknown operator " ++ op
   where
     operators = S.fromList
-        ["+", "-", "*", "/", "&&", "and", "or", "||", "^", "<", "++", "."]
+        ["+", "-", "*", "/", "&&", "||", "^", "<", "++", ".", "at", "not"]
 
 -- Parses a char and skips trailling whitespace/comments
 char :: Char -> ParserT Char
