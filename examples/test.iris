@@ -3,3 +3,4 @@ fn sqrt(n) {
 }
 
 print("sqrt of 61 = " ++ (str(sqrt(64))));
+print("Hello, world");
