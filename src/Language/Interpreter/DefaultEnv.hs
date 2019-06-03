@@ -30,9 +30,7 @@ defaultEnv = M.fromList
     , ("/"    , divV)
     , ("*"    , multV)
     , ("^"    , powV)
-    , ("and"  , andV)
     , ("&&"   , andV)
-    , ("or"   , orV)
     , ("||"   , orV)
     , ("neg"  , negV)
     , ("!"    , notV)
@@ -72,9 +70,9 @@ defaultEnv = M.fromList
         _                    -> throwError $ Custom "Expected Integer or Float"
     powV = Fn $ \([a, b]) -> case (a, b) of
         (VInt   x, VInt y  ) -> return $ VInt (x ^ y)
-        (VInt   x, VFloat y) -> return $ VInt (x ^ round y)
-        (VFloat x, VInt y  ) -> return $ VInt (round x ^ y)
-        (VFloat x, VFloat y) -> return $ VInt (round x ^ round y)
+        (VInt   x, VFloat y) -> return $ VFloat (fromIntegral x ** y)
+        (VFloat x, VInt y  ) -> return $ VFloat (x ** fromIntegral y)
+        (VFloat x, VFloat y) -> return $ VFloat (x ** y)
         _                    -> throwError $ Custom "Expected Integer or Float"
     andV = Fn $ \([a, b]) -> return $ VBool (makeTruthy a && makeTruthy b)
 
