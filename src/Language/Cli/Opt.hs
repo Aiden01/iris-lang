@@ -32,7 +32,7 @@ getOpt :: Opt -> IO ()
 getOpt (Opt Nothing) = putStrLn "Iris REPL - Version 1.0.0" >>= \_ ->
     forever $ do
         stdin <- prompt "λ> "
-        runIris stdin
+        eval' stdin
 getOpt (Opt (Just file)) = readFile file >>= eval
 
 headerInfo :: ParserInfo Opt

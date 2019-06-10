@@ -57,7 +57,7 @@ instance Show Value where
     show (VString x) = "\"" <> x <> "\""
     show (VFloat x) = show x
     show (VChar x) = show x
-    show (VList x) = show $ map show x
+    show (VList x) = show x
     show (VBool x) = show x
     show (VObject x) = M.foldrWithKey (\ k v acc -> acc <> "{" <> k <> ":" <> show v <> "},") [] x
     show VoidV = "()"

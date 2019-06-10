@@ -1,4 +1,44 @@
-val sqrt = (n) -> n ^ (1 / 2);
+fn reduce(f, list, default) {
+    val i = 0;
+    val acc = default;
+    while(i < len(list)) {
+        acc = f(list at i, acc);
+        i = i+1;
+    }
+    return acc;
+}
 
-print("sqrt of 61 = " ++ (str(sqrt(64))));
-print("Hello, world");
+val arr = [1..19];
+print(arr);
+
+fn any(f, list) {
+    val passes = False;
+    val i = 0;
+    while(i < len(list)) {
+        if (f(list at i)) {
+            passes = True;
+        }
+        i = i + 1;
+    }
+    return passes;
+}
+
+fn map(f, list) {
+    val i = 0;
+    val newList = [];
+    while(i < len(list)) {
+        newList = newList ++ [f(list at i)];
+        i = i + 1;
+    }
+    return newList;
+}
+
+fn every(f, list) {
+    return reduce((n, acc) -> f(n), list, False);
+}
+
+
+print(any((n) -> n < 2, [4, 5, 6, 1, 7]));
+print(map((n) -> n * 2, [4, 5, 6, 1, 7]));
+print(every((n) -> n < 5, [1, 1, 2, 3, 4]));
+print(reduce((n, acc) -> n + acc, [1, 1, 2, 3, 4], 0));

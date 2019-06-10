@@ -32,19 +32,29 @@ evalExpr (BinOp op expr expr') env = do
     evalBinOp env op x y
 evalExpr (UnaryOp  op   expr) env = evalExpr expr env >>= evalUOp env op
 evalExpr (AttrExpr expr attr) env = evalExpr expr env >>= evalAttrExpr env attr
-evalExpr (ArrayIndex expr index) env =
-    evalExpr expr env >>= evalArrayIndex index
-evalExpr (Var x) env = case M.lookup x env of
+evalExpr (Var x             ) env = case M.lookup x env of
     Just val -> return val
     Nothing  -> throwError $ Unbound x
-evalExpr (CallExpr name args) env = case M.lookup name env of
-    Just (Fn fn) -> do
+evalExpr (CallExpr expr args) env = evalExpr expr env >>= \case
+    Fn fn -> do
         args <- mapM (flip evalExpr env) args
         fn args
-    Nothing -> throwError $ Unbound name
+    _ -> throwError $ Custom "Mismatched types"
 
 evalExpr (Lambda params expr) env =
     return $ Fn $ (\args -> invokeFn expr args params env)
+evalExpr (Range expr expr') env = do
+    to   <- evalExpr expr env
+    from <- evalExpr expr' env
+    case (to, from) of
+        (VInt   x, VInt y  ) -> return $ VList $ map VInt [x .. y]
+        (VFloat x, VFloat y) -> return $ VList $ map VFloat [x .. y]
+        (VInt x, VFloat y) ->
+            return $ VList $ map VFloat [(fromIntegral x) .. y]
+        (VFloat x, VInt y) ->
+            return $ VList $ map VFloat [x .. (fromIntegral y)]
+        (VChar x, VChar y) -> return $ VList $ map VChar [x .. y]
+        _                  -> throwError $ Custom "Mismatched types"
 invokeFn :: Expr -> [Value] -> [String] -> Scope Value -> VResult
 invokeFn expr given expected env = if length given == length expected
     then do
@@ -62,26 +72,25 @@ invokeFn expr given expected env = if length given == length expected
         <> show (length given)
         <> " were given"
 
+
 getOp :: Scope Value -> String -> [Value] -> VResult
 getOp env op = let (Fn fn) = env ! op in fn
 
 evalAttrExpr :: Scope Value -> String -> Value -> VResult
 evalAttrExpr env attr expr = getOp env "." [expr, VString attr]
 
-evalArrayIndex :: Integer -> Value -> VResult
-evalArrayIndex index (VList array) = return $ array !! (fromInteger index)
-evalArrayIndex _     _             = throwError $ Custom "Mismatched types"
 
 evalBinOp :: Scope Value -> BinOp -> Value -> Value -> VResult
-evalBinOp env Add    x y = getOp env "+" [x, y]
-evalBinOp env Sub    x y = getOp env "-" [x, y]
-evalBinOp env Mult   x y = getOp env "*" [x, y]
-evalBinOp env Pow    x y = getOp env "^" [x, y]
-evalBinOp env And    x y = getOp env "&&" [x, y]
-evalBinOp env Or     x y = getOp env "||" [x, y]
-evalBinOp env Div    x y = getOp env "/" [x, y]
-evalBinOp env Lower  x y = getOp env "<" [x, y]
-evalBinOp env Concat x y = getOp env "++" [x, y]
+evalBinOp env Add    x            y            = getOp env "+" [x, y]
+evalBinOp env Sub    x            y            = getOp env "-" [x, y]
+evalBinOp env Mult   x            y            = getOp env "*" [x, y]
+evalBinOp env Pow    x            y            = getOp env "^" [x, y]
+evalBinOp env And    x            y            = getOp env "&&" [x, y]
+evalBinOp env Or     x            y            = getOp env "||" [x, y]
+evalBinOp env Div    x            y            = getOp env "/" [x, y]
+evalBinOp env Lower  x            y            = getOp env "<" [x, y]
+evalBinOp env Concat x            y            = getOp env "++" [x, y]
+evalBinOp env At (VList list) (VInt index) = return (list !! fromInteger index)
 
 evalUOp :: Scope Value -> UnaryOp -> Value -> VResult
 evalUOp env Not    x = getOp env "!" [x]

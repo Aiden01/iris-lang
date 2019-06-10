@@ -20,9 +20,9 @@ parseCallExpr = do
     (fn, params) <- lexeme parseCall
     return $ CallExpr fn params
 
-parseCall :: ParserT (String, [Expr])
+parseCall :: ParserT (Expr, [Expr])
 parseCall = do
-    fn     <- identifier
+    fn     <- parseVarExpr <|> parens (parseExpr)
     params <- parens (commaSep parseExpr)
     return (fn, params)
 
@@ -47,6 +47,17 @@ parseArray :: ParserT Lit
 parseArray = do
     exprs <- brackets (commaSep parseExpr)
     return (Array exprs)
+
+parseRange :: ParserT Expr
+parseRange = brackets p
+  where
+    p = do
+        from  <- parseLiteral <|> parseVarExpr <|> parens parseExpr
+        range <- T.unpack <$> (symbol "..." <|> symbol "..")
+        to    <- parseExpr >>= \expr -> case range of
+            ".."  -> return $ BinOp Sub expr (Literal $ Number 1)
+            "..." -> return expr
+        return $ Range from to
 
 parseObject :: ParserT Lit
 parseObject = do
@@ -89,9 +100,7 @@ parseExpr = makeExprParser term opTable
   where
     opTable =
         [ [InfixL (operator "++" >> return (BinOp Concat))]
-        , [ Postfix
-                (operator "at" >>= return (flip ArrayIndex <$> integerLiteral))
-          ]
+        , [InfixL (operator "at" >> return (BinOp At))]
         , [Postfix (operator "." >>= return (flip AttrExpr <$> identifier))]
         , [Prefix (operator "-" >> return (UnaryOp Negate))]
         , [Prefix (operator "not" >> return (UnaryOp Not))]
@@ -109,6 +118,7 @@ parseExpr = makeExprParser term opTable
 term :: ParserT Expr
 term = lexeme
     (   Mega.try parseLambda
+    <|> Mega.try parseRange
     <|> Mega.try parseLiteral
     <|> parens parseExpr
     <|> Mega.try parseCallExpr

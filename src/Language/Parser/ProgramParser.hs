@@ -55,8 +55,9 @@ parseFnDeclStmt = do
 
 parseCallStmt :: ParserT Statement
 parseCallStmt = do
-    (fn, params) <- lexeme parseCall
-    _            <- symbol ";"
+    fn     <- identifier
+    params <- parens (commaSep parseExpr)
+    _      <- symbol ";"
     return (CallStmt fn params)
 
 

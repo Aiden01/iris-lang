@@ -37,9 +37,9 @@ data Expr
     | UnaryOp UnaryOp Expr
     | Var String
     | AttrExpr Expr String
-    | CallExpr String [Expr]
-    | ArrayIndex Expr Integer
+    | CallExpr Expr [Expr]
     | Lambda [String] Expr
+    | Range Expr Expr
     deriving (Show)
 
 data UnaryOp
@@ -57,6 +57,7 @@ data BinOp
     | Pow
     | Lower
     | Concat
+    | At
     deriving (Show)
 
 data TypeExpr
