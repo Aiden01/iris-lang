@@ -30,6 +30,8 @@ dependencies:
   - ansi-terminal >= 0.9.1
   - parser-combinators
   - mtl
+  - directory
+  - MissingH
 
 library:
   source-dirs: src

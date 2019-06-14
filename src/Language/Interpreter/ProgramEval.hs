@@ -11,11 +11,17 @@ import           Language.Interpreter.DefaultEnv
 import           Language.Interpreter.Types
 import           Control.Monad.Except           ( ExceptT
                                                 , throwError
+                                                , runExceptT
                                                 )
 import           Data.Maybe                     ( fromMaybe )
 import qualified Data.Map                      as M
-
-type EnvResult = ExceptT VError IO (Scope Value)
+import           System.Directory               ( doesFileExist )
+import           Language.Parser.ProgramParser
+import           Data.Text                      ( pack )
+import           Text.Megaparsec                ( parse
+                                                , eof
+                                                )
+import           Control.Monad.Trans            ( lift )
 
 evalProgram :: Program -> Scope Value -> EnvResult
 evalProgram (Program []   ) env = return env
@@ -44,6 +50,18 @@ evalStmt (VarDecl name _ expr) env = do
     case get name env :: Maybe Value of
         Nothing -> return $ insert name value env
         Just _  -> throwError $ Custom $ name <> " is already declared"
+evalStmt (UseStmt mod) env = do
+    let path = "lib/" <> mod <> ".iris"
+    doesntExist <- lift (not <$> doesFileExist path)
+    if doesntExist
+        then throwError . Custom $ "Module " <> mod <> " does not exist."
+        else
+            lift (parse (parseProgram <* eof) "" . pack <$> readFile path)
+                >>= \case
+                        Left _ ->
+                            throwError . Custom $ "Cannot parse module " <> mod
+                        Right ast -> evalProgram ast env
+
 evalStmt (Assign name expr) env = do
     value <- evalExpr expr env
     case get name env :: Maybe Value of

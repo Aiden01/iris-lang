@@ -62,6 +62,7 @@ keywords = S.fromList
     , "Float"
     , "return"
     , "for"
+    , "use"
     ]
 
 -- Parses an identifier

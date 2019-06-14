@@ -9,6 +9,7 @@ module Language.Interpreter.Types
     , insert
     , get
     , modify
+    , EnvResult
     )
 where
 
@@ -20,6 +21,8 @@ import           Data.Maybe                     ( isJust )
 
 type Scope a = M.Map String a
 type VResult = ExceptT VError IO Value
+type EnvResult = ExceptT VError IO (Scope Value)
+
 
 class Env env a where
     insert :: String -> a -> env -> env

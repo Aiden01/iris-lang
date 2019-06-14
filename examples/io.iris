@@ -1,4 +1,3 @@
-
 fn getInput() {
     return int(input("Enter a number: "));
 }
@@ -13,5 +12,4 @@ while (usersGuess != n) {
     }
     usersGuess = getInput();
 }
-
 print("Nice, you got it right! The number was " ++ str(n));

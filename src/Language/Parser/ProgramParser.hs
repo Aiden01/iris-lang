@@ -23,6 +23,10 @@ parseStatement =
         <|> parseWhileStmt
         <|> parseCallStmt
         <|> parseForStmt
+        <|> parseUseStmt
+
+parseUseStmt :: ParserT Statement
+parseUseStmt = UseStmt <$> (keyword "use" *> identifier <* symbol ";")
 
 parseReturnStatement :: ParserT Statement
 parseReturnStatement =

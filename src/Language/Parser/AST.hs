@@ -83,6 +83,7 @@ data Statement
     | Assign String Expr
     | ReturnStmt Expr
     | ForStmt String Expr [Statement]
+    | UseStmt String
     deriving (Show)
 
 data Program = Program [Statement]

@@ -1,0 +1,45 @@
+fn fold(f, list, default) {
+    val acc = default;
+    for (val x : list) {
+        acc = f(x, acc);
+    }
+    return acc;
+}
+
+
+fn any(f, list) {
+    val passes = False;
+    for (val x : list) {
+        if (f(x)) {
+            passes = True;
+        }
+    }
+    return passes;
+}
+
+fn map(f, list) {
+    val newList = [];
+    for (val x : list) {
+        newList = newList ++ [f(x)];
+    }
+    return newList;
+}
+
+fn every(f, list) {
+    return reduce((n, acc) -> f(n), list, False);
+}
+
+fn push(x, list) {
+    return list ++ [x];
+}
+
+fn filter(f, list) {
+    val newList = [];
+    for (val x : list) {
+        if (f(x)) {
+            newList = push(x, newList);
+        }
+    }
+    return newList;
+}
+
