@@ -12,7 +12,9 @@ import           Control.Monad.Except           ( ExceptT
 import           Control.Monad.Trans            ( lift )
 import qualified Data.Map                      as M
 import           Text.Read                      ( readMaybe )
-
+import           System.Random                  ( randomRIO
+                                                , Random
+                                                )
 makeTruthy :: Value -> Bool
 makeTruthy = \case
     VBool   False -> False
@@ -25,27 +27,28 @@ makeTruthy = \case
 
 defaultEnv :: Scope Value
 defaultEnv = M.fromList
-    [ ("+"    , addV)
-    , ("-"    , subV)
-    , ("/"    , divV)
-    , ("*"    , multV)
-    , ("^"    , powV)
-    , ("&&"   , andV)
-    , ("||"   , orV)
-    , ("neg"  , negV)
-    , ("!"    , notV)
-    , ("!="   , notEq)
-    , ("=="   , eq)
-    , ("print", printV)
-    , ("str"  , strV)
-    , ("int"  , intV)
-    , ("bool" , boolV)
-    , ("<"    , lowerV)
-    , (">"    , greaterV)
-    , ("++"   , concatV)
-    , ("."    , attrV)
-    , ("len"  , lenV)
-    , ("input", input)
+    [ ("+"      , addV)
+    , ("-"      , subV)
+    , ("/"      , divV)
+    , ("*"      , multV)
+    , ("^"      , powV)
+    , ("&&"     , andV)
+    , ("||"     , orV)
+    , ("neg"    , negV)
+    , ("!"      , notV)
+    , ("!="     , notEq)
+    , ("=="     , eq)
+    , ("print"  , printV)
+    , ("str"    , strV)
+    , ("int"    , intV)
+    , ("bool"   , boolV)
+    , ("<"      , lowerV)
+    , (">"      , greaterV)
+    , ("++"     , concatV)
+    , ("."      , attrV)
+    , ("len"    , lenV)
+    , ("input"  , input)
+    , ("randInt", randInt)
     ]
   where
     addV = Fn $ \([a, b]) -> case (a, b) of
@@ -158,5 +161,12 @@ defaultEnv = M.fromList
         (VString a, VString b) -> return $ VBool $ a == b
         (VChar   a, VChar b  ) -> return $ VBool $ a == b
         _                      -> throwError $ Custom "Mismatched types"
+    randInt = Fn $ \([x, y]) -> case (x, y) of
+        (VInt   a, VInt b  ) -> mkRandom a b VInt
+        (VFloat a, VFloat b) -> mkRandom a b VFloat
+        _                    -> throwError $ Custom "Mismatched types"
+
+    mkRandom :: Random a => a -> a -> (a -> Value) -> VResult
+    mkRandom x y constr = lift (randomRIO (x, y)) >>= return . constr
 
 

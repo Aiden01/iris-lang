@@ -13,3 +13,4 @@ while (usersGuess != n) {
     usersGuess = getInput();
 }
 print("Nice, you got it right! The number was " ++ str(n));
+print(randElement([1, 2, 3]));

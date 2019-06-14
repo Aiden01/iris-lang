@@ -43,3 +43,8 @@ fn filter(f, list) {
     return newList;
 }
 
+fn randElement(list) {
+    val index = randInt(0, len(list) - 1);
+    return list at index;
+}
+
