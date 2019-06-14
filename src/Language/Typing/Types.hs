@@ -1,11 +1,26 @@
 module Language.Typing.Types
     ( ResultT
+    , Type(..)
+    , TypeEnv
     )
 where
 
 import           Control.Monad.Except           ( ExceptT )
-import           Language.Parser.AST            ( TypeExpr )
 import           Language.Interpreter.Types     ( Value )
+import qualified Data.Map                      as M
+
+data Type
+    = TInt
+    | TString
+    | TChar
+    | TFloat
+    | TArray Type
+    | TVar String
+    | TBool
+    | VoidT
+    deriving (Show)
+
+type TypeEnv = M.Map String Type
 
 type ResultT = ExceptT TypeError IO ()
 data TypeError = TypeError Value TypeError

@@ -81,15 +81,19 @@ evalAttrExpr env attr expr = getOp env "." [expr, VString attr]
 
 
 evalBinOp :: Scope Value -> BinOp -> Value -> Value -> VResult
-evalBinOp env Add    x            y            = getOp env "+" [x, y]
-evalBinOp env Sub    x            y            = getOp env "-" [x, y]
-evalBinOp env Mult   x            y            = getOp env "*" [x, y]
-evalBinOp env Pow    x            y            = getOp env "^" [x, y]
-evalBinOp env And    x            y            = getOp env "&&" [x, y]
-evalBinOp env Or     x            y            = getOp env "||" [x, y]
-evalBinOp env Div    x            y            = getOp env "/" [x, y]
-evalBinOp env Lower  x            y            = getOp env "<" [x, y]
-evalBinOp env Concat x            y            = getOp env "++" [x, y]
+evalBinOp env Add     x            y            = getOp env "+" [x, y]
+evalBinOp env Sub     x            y            = getOp env "-" [x, y]
+evalBinOp env Mult    x            y            = getOp env "*" [x, y]
+evalBinOp env Pow     x            y            = getOp env "^" [x, y]
+evalBinOp env And     x            y            = getOp env "&&" [x, y]
+evalBinOp env Or      x            y            = getOp env "||" [x, y]
+evalBinOp env Div     x            y            = getOp env "/" [x, y]
+evalBinOp env Lower   x            y            = getOp env "<" [x, y]
+evalBinOp env Greater x            y            = getOp env ">" [x, y]
+evalBinOp env Concat  x            y            = getOp env "++" [x, y]
+evalBinOp env Eq      x            y            = getOp env "==" [x, y]
+evalBinOp env NotEq   x            y            = getOp env "!=" [x, y]
+
 evalBinOp env At (VList list) (VInt index) = return (list !! fromInteger index)
 
 evalUOp :: Scope Value -> UnaryOp -> Value -> VResult

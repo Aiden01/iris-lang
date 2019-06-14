@@ -1,0 +1,17 @@
+
+fn getInput() {
+    return int(input("Enter a number: "));
+}
+val n = 10;
+val usersGuess = getInput();
+while (usersGuess != n) {
+    if (usersGuess < n) {
+        print("Higher!");
+    }
+    if (usersGuess > n) {
+        print("Lower!");
+    }
+    usersGuess = getInput();
+}
+
+print("Nice, you got it right! The number was " ++ str(n));

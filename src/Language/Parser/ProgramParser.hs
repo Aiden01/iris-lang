@@ -22,6 +22,7 @@ parseStatement =
         <|> parseIfStmt
         <|> parseWhileStmt
         <|> parseCallStmt
+        <|> parseForStmt
 
 parseReturnStatement :: ParserT Statement
 parseReturnStatement =
@@ -79,6 +80,16 @@ parseWhileStmt = do
     block <- braces (Mega.optional parseProgram)
     return (WhileStmt cond block)
 
+parseForStmt :: ParserT Statement
+parseForStmt = do
+    keyword "for"
+    (id, list) <- parens $ do
+        id' <- keyword "val" *> identifier
+        colon
+        list' <- parseExpr
+        return (id', list')
+    block <- braces $ Mega.many (lexeme parseStatement)
+    return $ ForStmt id list block
 parseVarDeclStmt :: ParserT Statement
 parseVarDeclStmt = do
     keyword "val"

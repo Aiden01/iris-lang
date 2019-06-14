@@ -34,14 +34,18 @@ defaultEnv = M.fromList
     , ("||"   , orV)
     , ("neg"  , negV)
     , ("!"    , notV)
+    , ("!="   , notEq)
+    , ("=="   , eq)
     , ("print", printV)
     , ("str"  , strV)
     , ("int"  , intV)
     , ("bool" , boolV)
     , ("<"    , lowerV)
+    , (">"    , greaterV)
     , ("++"   , concatV)
     , ("."    , attrV)
     , ("len"  , lenV)
+    , ("input", input)
     ]
   where
     addV = Fn $ \([a, b]) -> case (a, b) of
@@ -112,6 +116,12 @@ defaultEnv = M.fromList
         (VString a, VString b) -> return $ VBool $ a < b
         (VChar   a, VChar b  ) -> return $ VBool $ a < b
         _                      -> throwError $ Custom "Mismatched types"
+    greaterV = Fn $ \([x, y]) -> case (x, y) of
+        (VInt    a, VInt b   ) -> return $ VBool $ a > b
+        (VFloat  a, VFloat b ) -> return $ VBool $ a > b
+        (VString a, VString b) -> return $ VBool $ a > b
+        (VChar   a, VChar b  ) -> return $ VBool $ a > b
+        _                      -> throwError $ Custom "Mismatched types"
     concatV = Fn $ \([x, y]) -> case (x, y) of
         (VString a, VString b) -> return $ VString (a <> b)
         (VList   a, VList b  ) -> return $ VList (a <> b)
@@ -126,3 +136,27 @@ defaultEnv = M.fromList
         VString str -> return $ VInt $ toInteger (length str)
         VList   xs  -> return $ VInt $ toInteger (length xs)
         _           -> throwError $ Custom "Mismatched types"
+    input = Fn $ \([x]) -> case x of
+        VString str -> do
+            lift $ putStrLn str
+            stdin <- lift getLine
+            return $ VString stdin
+        _ -> throwError $ Custom "Mismatched types"
+    notEq = Fn $ \([x, y]) -> case (x, y) of
+        (VInt    a, VInt b   ) -> return $ VBool $ a /= b
+        (VInt    a, VFloat b ) -> return $ VBool $ (fromIntegral a) /= b
+        (VFloat  a, VInt b   ) -> return $ VBool $ a /= (fromIntegral b)
+        (VFloat  a, VFloat b ) -> return $ VBool $ a /= b
+        (VString a, VString b) -> return $ VBool $ a /= b
+        (VChar   a, VChar b  ) -> return $ VBool $ a /= b
+        _                      -> throwError $ Custom "Mismatched types"
+    eq = Fn $ \([x, y]) -> case (x, y) of
+        (VInt    a, VInt b   ) -> return $ VBool $ a == b
+        (VInt    a, VFloat b ) -> return $ VBool $ (fromIntegral a) == b
+        (VFloat  a, VInt b   ) -> return $ VBool $ a == (fromIntegral b)
+        (VFloat  a, VFloat b ) -> return $ VBool $ a == b
+        (VString a, VString b) -> return $ VBool $ a == b
+        (VChar   a, VChar b  ) -> return $ VBool $ a == b
+        _                      -> throwError $ Custom "Mismatched types"
+
+

@@ -58,6 +58,9 @@ data BinOp
     | Lower
     | Concat
     | At
+    | NotEq
+    | Eq
+    | Greater
     deriving (Show)
 
 data TypeExpr
@@ -79,6 +82,7 @@ data Statement
     | CallStmt String [Expr]
     | Assign String Expr
     | ReturnStmt Expr
+    | ForStmt String Expr [Statement]
     deriving (Show)
 
 data Program = Program [Statement]

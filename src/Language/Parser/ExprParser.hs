@@ -102,7 +102,9 @@ parseExpr = makeExprParser term opTable
         [ [InfixL (operator "++" >> return (BinOp Concat))]
         , [InfixL (operator "at" >> return (BinOp At))]
         , [Postfix (operator "." >>= return (flip AttrExpr <$> identifier))]
+        , [InfixL (operator "==" >> return (BinOp Eq))]
         , [Prefix (operator "-" >> return (UnaryOp Negate))]
+        , [InfixL (operator "!=" >> return (BinOp NotEq))]
         , [Prefix (operator "not" >> return (UnaryOp Not))]
         , [InfixL (operator "&&" >> return (BinOp And))]
         , [InfixL (operator "||" >> return (BinOp Or))]
@@ -112,6 +114,7 @@ parseExpr = makeExprParser term opTable
         , [InfixL (operator "+" >> return (BinOp Add))]
         , [InfixL (operator "-" >> return (BinOp Sub))]
         , [InfixL (operator "<" >> return (BinOp Lower))]
+        , [InfixL (operator ">" >> return (BinOp Greater))]
         ]
 
 

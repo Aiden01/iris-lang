@@ -1,9 +1,7 @@
 fn reduce(f, list, default) {
-    val i = 0;
     val acc = default;
-    while(i < len(list)) {
-        acc = f(list at i, acc);
-        i = i+1;
+    for (val x : list) {
+        acc = f(x, acc);
     }
     return acc;
 }
@@ -13,22 +11,18 @@ print(arr);
 
 fn any(f, list) {
     val passes = False;
-    val i = 0;
-    while(i < len(list)) {
-        if (f(list at i)) {
+    for (val x : list) {
+        if (f(x)) {
             passes = True;
         }
-        i = i + 1;
     }
     return passes;
 }
 
 fn map(f, list) {
-    val i = 0;
     val newList = [];
-    while(i < len(list)) {
-        newList = newList ++ [f(list at i)];
-        i = i + 1;
+    for (val x : list) {
+        newList = newList ++ [f(x)];
     }
     return newList;
 }

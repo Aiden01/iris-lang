@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Language.Interpreter.ProgramEval
     ( evalProgram
     )
@@ -24,6 +26,12 @@ evalStatements [] env = return env
 evalStatements stmts env =
     foldl (\env' stmt -> evalStmt stmt =<< env') (return env) stmts
 
+evalForStmt :: String -> [Value] -> [Statement] -> Scope Value -> EnvResult
+evalForStmt _ [] _ env = return env
+evalForStmt id (v : vs) stmts env =
+    let newEnv = insert id v env
+    in  evalStatements stmts newEnv >>= evalForStmt id vs stmts
+
 evalFnStatements :: [Statement] -> Scope Value -> VResult
 evalFnStatements []                      _   = return VoidV
 evalFnStatements ((ReturnStmt expr) : _) env = evalExpr expr env
@@ -46,6 +54,11 @@ evalStmt (CallStmt name params) env = do
     case get name env of
         Nothing     -> throwError $ Custom $ "Undefined function " <> name
         Just (Fn f) -> f exprs >> return env
+evalStmt (ForStmt id expr block) env = do
+    list <- evalExpr expr env
+    case list of
+        VList v -> evalForStmt id v block env
+        _       -> throwError $ Custom "Mismatched types"
 evalStmt (IfStmt cond block elseStmt) env = do
     expr <- makeTruthy <$> evalExpr cond env
     case (expr, block, elseStmt) of
