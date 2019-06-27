@@ -33,6 +33,8 @@ dependencies:
   - directory
   - MissingH
   - random
+  - free
+  - comonad
 
 library:
   source-dirs: src

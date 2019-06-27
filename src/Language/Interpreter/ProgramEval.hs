@@ -5,7 +5,7 @@ module Language.Interpreter.ProgramEval
     )
 where
 
-import           Language.Parser.AST
+import           Language.Parser.AST     hiding ( Fn )
 import           Language.Interpreter.ExprEval
 import           Language.Interpreter.DefaultEnv
 import           Language.Interpreter.Types
@@ -22,90 +22,86 @@ import           Text.Megaparsec                ( parse
                                                 , eof
                                                 )
 import           Control.Monad.Trans            ( lift )
+import           Control.Comonad.Cofree
+import           Text.Megaparsec.Pos            ( mkPos )
+import qualified Control.Monad.State           as S
+import           Control.Applicative            ( (<|>) )
 
-evalProgram :: Program -> Scope Value -> EnvResult
-evalProgram (Program []   ) env = return env
-evalProgram (Program stmts) env = evalStatements stmts env
 
-evalStatements :: [Statement] -> Scope Value -> EnvResult
-evalStatements [] env = return env
-evalStatements stmts env =
-    foldl (\env' stmt -> evalStmt stmt =<< env') (return env) stmts
 
-evalForStmt :: String -> [Value] -> [Statement] -> Scope Value -> EnvResult
-evalForStmt _ [] _ env = return env
-evalForStmt id (v : vs) stmts env =
-    let newEnv = insert id v env
-    in  evalStatements stmts newEnv >>= evalForStmt id vs stmts
+data EvalContext = TopLevelCtx | InFnCtx
 
-evalFnStatements :: [Statement] -> Scope Value -> VResult
-evalFnStatements []                      _   = return VoidV
-evalFnStatements ((ReturnStmt expr) : _) env = evalExpr expr env
-evalFnStatements (stmt : stmts) env =
-    evalFnStatements stmts =<< evalStmt stmt env
+existsInSameScope :: String -> EvalState Bool
+existsInSameScope name = S.gets (exists name . head)
 
-evalStmt :: Statement -> Scope Value -> EnvResult
-evalStmt (VarDecl name _ expr) env = do
-    value <- evalExpr expr env
-    case get name env :: Maybe Value of
-        Nothing -> return $ insert name value env
-        Just _  -> throwError $ Custom $ name <> " is already declared"
-evalStmt (UseStmt mod) env = do
-    let path = "lib/" <> mod <> ".iris"
-    doesntExist <- lift (not <$> doesFileExist path)
-    if doesntExist
-        then throwError . Custom $ "Module " <> mod <> " does not exist."
-        else
-            lift (parse (parseProgram <* eof) "" . pack <$> readFile path)
-                >>= \case
-                        Left _ ->
-                            throwError . Custom $ "Cannot parse module " <> mod
-                        Right ast -> evalProgram ast env
+insertInScope :: String -> Value -> EvalState ()
+insertInScope name t = S.modify (\(s : ss) -> insert name t s : ss)
 
-evalStmt (Assign name expr) env = do
-    value <- evalExpr expr env
-    case get name env :: Maybe Value of
-        Nothing -> throwError $ Unbound name
-        Just _  -> return $ modify name value env
-evalStmt (CallStmt name params) env = do
-    exprs <- traverse (flip evalExpr env) params
-    case get name env of
-        Nothing     -> throwError $ Custom $ "Undefined function " <> name
-        Just (Fn f) -> f exprs >> return env
-evalStmt (ForStmt id expr block) env = do
-    list <- evalExpr expr env
-    case list of
-        VList v -> evalForStmt id v block env
-        _       -> throwError $ Custom "Mismatched types"
-evalStmt (IfStmt cond block elseStmt) env = do
-    expr <- makeTruthy <$> evalExpr cond env
-    case (expr, block, elseStmt) of
-        (True , stmts, _         ) -> evalStatements stmts env
-        (False, _    , Just stmts) -> evalStatements stmts env
-        (False, _    , Nothing   ) -> return env
-evalStmt (WhileStmt cond p) env = do
-    expr <- makeTruthy <$> evalExpr cond env
-    let stmt = WhileStmt cond p
-    case (expr, p) of
-        (True , Just stmts) -> evalProgram stmts env >>= evalStmt stmt
-        (True , Nothing   ) -> evalStmt stmt env
-        (False, _         ) -> return env
-evalStmt (FnDecl name paramsT p) env =
-    let params = map (\(Param s _) -> s) paramsT
-        block  = fromMaybe [] p
-        fn     = Fn (\args -> invokeFn block env args params)
-    in  return $ insert name fn env
+enterScope :: EvalState ()
+enterScope = S.modify ((:) (M.fromList []))
+
+leaveScope :: EvalState ()
+leaveScope = S.modify tail
+
+lookupScope :: String -> SourceSpan -> EvalState Value
+lookupScope id pos =
+    S.gets lookup' >>= maybe (throwError $ Unbound (begin pos) id) pure
   where
-    invokeFn :: [Statement] -> Scope Value -> [Value] -> [String] -> VResult
-    invokeFn stmts env given expected = if length given == length expected
+    lookup' :: [Scope Value] -> Maybe Value
+    lookup' = foldr (<|>) Nothing . map (get id)
+
+evalProgram :: Program -> EvalState Value
+evalProgram (Program []   ) = pure VoidV
+evalProgram (Program stmts) = evalStatements stmts TopLevelCtx
+
+evalStatements :: [Statement] -> EvalContext -> EvalState Value
+evalStatements [] _ = pure VoidV
+evalStatements (ReturnStmt _ : _) TopLevelCtx =
+    throwError $ Custom undefined "Illegal return statement"
+evalStatements (ReturnStmt expr : _    ) InFnCtx = evalExpr expr
+evalStatements (stmt            : stmts) ctx     = evalStmt stmt ctx >>= \case
+    VoidV -> evalStatements stmts ctx
+    value -> pure value
+
+evalStmt :: Statement -> EvalContext -> EvalState Value
+evalStmt (ReturnStmt _) TopLevelCtx =
+    throwError $ Custom undefined "Illegal return statement"
+evalStmt (VarDecl name _ expr) _ = do
+    v <- evalExpr expr
+    insertInScope name v
+    pure VoidV
+evalStmt (FnDecl name paramsT stmts) _ =
+    let params = map (\(Param s _) -> s) paramsT
+        fn     = Fn (\args -> invokeFn stmts args params)
+    in  insertInScope name fn *> pure VoidV
+evalStmt (CallStmt name params@((pos :< _) : _)) _ =
+    lookupScope name pos >>= \case
+        Fn fn -> do
+            args <- mapM (\expr -> evalExpr expr) params
+            fn args
+evalStmt (IfStmt expr stmts elseBlock) ctx = do
+    VBool isTrue <- evalExpr expr
+    case (isTrue, elseBlock) of
+        (True , _          ) -> evalStatements stmts ctx
+        (False, Just stmts') -> evalStatements stmts' ctx
+        (False, Nothing    ) -> pure VoidV
+evalStmt (ReturnStmt expr   ) InFnCtx = evalExpr expr
+evalStmt (Assign name expr _) _       = do
+    v <- evalExpr expr
+    insertInScope name v
+    pure VoidV
+
+invokeFn :: [Statement] -> [Value] -> [String] -> EvalState Value
+invokeFn stmts given expected = do
+    if length given == length expected
         then do
-            let fnEnv = foldr (\(name, value) env -> insert name value env)
-                              (M.fromList [])
-                              (zip expected given)
-            evalFnStatements stmts (M.union fnEnv env)
+            enterScope
+            mapM_ (\(name, value) -> insertInScope name value)
+                  (zip expected given)
+            evalStatements stmts InFnCtx <* leaveScope
         else
             throwError
-            $  Custom
+            $  Custom undefined
             $  "Expected "
             <> show (length expected)
             <> " arguments but "

@@ -1,15 +1,15 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, FunctionalDependencies #-}
 
 module Language.Interpreter.Types
     ( Scope
     , Value(..)
-    , VResult
+    , EvalState
     , VError(..)
     , Env
     , insert
     , get
     , modify
-    , EnvResult
+    , exists
     )
 where
 
@@ -18,21 +18,28 @@ import           Control.Monad.Except           ( ExceptT
                                                 , MonadError
                                                 )
 import           Data.Maybe                     ( isJust )
+import           Text.Megaparsec.Pos            ( SourcePos
+                                                , sourceName
+                                                , sourceLine
+                                                , sourceColumn
+                                                , sourcePosPretty
+                                                )
+import           Control.Monad.State            ( StateT )
 
 type Scope a = M.Map String a
-type VResult = ExceptT VError IO Value
-type EnvResult = ExceptT VError IO (Scope Value)
+type EvalState a = StateT [Scope Value] (ExceptT VError IO) a
 
-
-class Env env a where
+class Env env a | env -> a where
     insert :: String -> a -> env -> env
     get :: String -> env -> Maybe a
     modify :: String -> a -> env -> env
+    exists :: String -> env -> Bool
 
 instance Env (Scope a) a where
     insert = M.insert
     get = M.lookup
     modify key value env = M.adjust (\ _ -> value) key env
+    exists k env = isJust $ M.lookup k env
 
 data Value
     = VInt Integer
@@ -43,16 +50,19 @@ data Value
     | VoidV
     | VList [Value]
     | VObject (M.Map String Value)
-    | Fn ([Value] -> VResult)
+    | Fn ([Value] -> EvalState Value)
 
 
 data VError
-    = Unbound String
-    | Custom String
+    = Unbound SourcePos String
+    | Custom SourcePos String
+
+showPos :: SourcePos -> String
+showPos pos = "Error in " <> sourcePosPretty pos
 
 instance Show VError where
-    show (Unbound x ) =" Cannot use unbound variable " <> x
-    show (Custom x ) =  x
+    show (Unbound pos x) = showPos pos <> ": cannot use unbound variable " <> x
+    show (Custom pos x) = showPos pos <> ": " <> x
 
 
 instance Show Value where

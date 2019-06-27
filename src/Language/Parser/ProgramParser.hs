@@ -12,18 +12,20 @@ import           Control.Applicative            ( (<|>) )
 import           Language.Parser.ExprParser
 
 parseProgram :: ParserT Program
-parseProgram = Program <$> (space >> Mega.many (lexeme parseStatement))
+parseProgram =
+    Program <$> (space >> Mega.many (lexeme $ parseStatement TopLevel))
 
-parseStatement :: ParserT Statement
-parseStatement =
+parseStatement :: StmtContext -> ParserT Statement
+parseStatement ctx =
     Mega.try parseFnDeclStmt
         <|> parseVarDeclStmt
-        <|> Mega.try parseAssignStmt
-        <|> parseIfStmt
-        <|> parseWhileStmt
+        <|> Mega.try (parseAssignStmt ctx)
+        <|> parseIfStmt ctx
+        <|> parseWhileStmt ctx
         <|> parseCallStmt
-        <|> parseForStmt
+        <|> parseForStmt ctx
         <|> parseUseStmt
+        <|> parseReturnStatement
 
 parseUseStmt :: ParserT Statement
 parseUseStmt = UseStmt <$> (keyword "use" *> identifier <* symbol ";")
@@ -33,29 +35,26 @@ parseReturnStatement =
     ReturnStmt <$> (keyword "return" *> parseExpr <* symbol ";")
 
 
-parseAssignStmt :: ParserT Statement
-parseAssignStmt = do
+parseAssignStmt :: StmtContext -> ParserT Statement
+parseAssignStmt ctx = do
     name <- identifier
     _    <- symbol "="
     expr <- parseExpr
     _    <- symbol ";"
-    return $ Assign name expr
+    return $ Assign name expr ctx
 
 parseFnDeclStmt :: ParserT Statement
 parseFnDeclStmt = do
     keyword "fn"
     name   <- identifier
     params <- parens (commaSep param)
-    block  <-
-        (braces $ Mega.optional $ Mega.many $ lexeme
-            (parseStatement <|> parseReturnStatement)
-        )
+    block  <- (braces $ Mega.many $ lexeme $ parseStatement InFunction)
     return (FnDecl name params block)
   where
     param :: ParserT Param
     param = do
         name     <- identifier
-        typeExpr <- Mega.optional (symbol ":" *> parseTypeExpr)
+        typeExpr <- symbol ":" *> parseTypeExpr
         return (Param name typeExpr)
 
 parseCallStmt :: ParserT Statement
@@ -66,33 +65,33 @@ parseCallStmt = do
     return (CallStmt fn params)
 
 
-parseIfStmt :: ParserT Statement
-parseIfStmt = do
+parseIfStmt :: StmtContext -> ParserT Statement
+parseIfStmt ctx = do
     keyword "if"
     cond     <- parens parseExpr
-    block    <- braces (Mega.many parseStatement)
+    block    <- braces (Mega.many $ parseStatement ctx)
     elseStmt <- Mega.optional parseElseStmt
     return (IfStmt cond block elseStmt)
   where
     parseElseStmt :: ParserT [Statement]
-    parseElseStmt = keyword "else" *> braces (Mega.many parseStatement)
+    parseElseStmt = keyword "else" *> braces (Mega.many $ parseStatement ctx)
 
-parseWhileStmt :: ParserT Statement
-parseWhileStmt = do
+parseWhileStmt :: StmtContext -> ParserT Statement
+parseWhileStmt ctx = do
     keyword "while"
     cond  <- parens parseExpr
-    block <- braces (Mega.optional parseProgram)
+    block <- braces (Mega.many $ parseStatement ctx)
     return (WhileStmt cond block)
 
-parseForStmt :: ParserT Statement
-parseForStmt = do
+parseForStmt :: StmtContext -> ParserT Statement
+parseForStmt ctx = do
     keyword "for"
     (id, list) <- parens $ do
         id' <- keyword "val" *> identifier
         colon
         list' <- parseExpr
         return (id', list')
-    block <- braces $ Mega.many (lexeme parseStatement)
+    block <- braces $ Mega.many (lexeme $ parseStatement ctx)
     return $ ForStmt id list block
 parseVarDeclStmt :: ParserT Statement
 parseVarDeclStmt = do

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor, DeriveAnyClass #-}
 module Language.Parser.AST
     ( Statement(..)
     , Lit(..)
@@ -5,8 +6,11 @@ module Language.Parser.AST
     , Program(..)
     , BinOp(..)
     , UnaryOp(..)
-    , TypeExpr(..)
     , Param(..)
+    , ExprF(..)
+    , SourceSpan(..)
+    , Type(..)
+    , StmtContext(..)
     )
 where
 
@@ -14,9 +18,34 @@ import           Data.List                      ( intercalate )
 import qualified Data.Map                      as M
 import qualified Data.Text                     as T
 import           Text.Megaparsec
+import           Text.Megaparsec.Pos
+import           Control.Comonad.Cofree
 
+data Type
+    = TInt
+    | TString
+    | TChar
+    | TFloat
+    | TArray Type
+    | TVar String
+    | TBool
+    | VoidT
+    | Fn [Type] Type
+    | TAny
 
-
+instance Eq Type where
+    _ == TAny = True
+    TAny == _ = True
+    TInt == TInt = True
+    TString == TString = True
+    TChar == TChar = True
+    VoidT == VoidT = True
+    TFloat == TFloat = True
+    TArray x == TArray y = x == y
+    TBool == TBool = True
+    TVar x == TVar y = x == y
+    Fn types t == Fn types' t' = types == types' && t == t'
+    _ == _ = False
 
 data Lit
     = Number Integer
@@ -27,25 +56,27 @@ data Lit
     | Object (M.Map String Expr)
     | Float Double
     | Void
-    deriving (Show)
 
 
 
-data Expr
+data ExprF a
     = Literal Lit
-    | BinOp BinOp Expr Expr
-    | UnaryOp UnaryOp Expr
+    | BinOp BinOp a a
+    | UnaryOp UnaryOp a
     | Var String
-    | AttrExpr Expr String
-    | CallExpr Expr [Expr]
-    | Lambda [String] Expr
-    | Range Expr Expr
-    deriving (Show)
+    | AttrExpr a String
+    | CallExpr a [a]
+    | Lambda [String] a
+    | Range a a
+    deriving (Functor)
+
+data SourceSpan = SourceSpan { begin, end :: SourcePos } deriving (Semigroup)
+
+type Expr = Cofree ExprF SourceSpan
 
 data UnaryOp
     = Not
     | Negate
-    deriving (Show)
 
 data BinOp
     = Add
@@ -61,30 +92,25 @@ data BinOp
     | NotEq
     | Eq
     | Greater
-    deriving (Show)
 
-data TypeExpr
-  = TInt
-  | TString
-  | TChar
-  | TFloat
-  | VarT String
-  deriving (Show)
 
-data Param = Param String (Maybe TypeExpr)
-  deriving (Show)
+
+data Param = Param String Type
+
+data StmtContext = InFunction | TopLevel
 
 data Statement
-    = VarDecl String (Maybe TypeExpr) Expr
-    | FnDecl String [Param] (Maybe [Statement])
+    = VarDecl String (Maybe Type) Expr
+    | FnDecl String [Param] [Statement]
     | IfStmt Expr  [Statement]  (Maybe [Statement])
-    | WhileStmt Expr (Maybe Program)
+    | WhileStmt Expr [Statement]
     | CallStmt String [Expr]
-    | Assign String Expr
+    | Assign String Expr StmtContext
     | ReturnStmt Expr
     | ForStmt String Expr [Statement]
     | UseStmt String
-    deriving (Show)
 
 data Program = Program [Statement]
-    deriving (Show)
+
+instance Show Program where
+    show _ = "Not implemented yet"

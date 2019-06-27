@@ -29,11 +29,11 @@ prompt text = do
     getLine
 
 getOpt :: Opt -> IO ()
-getOpt (Opt Nothing) = putStrLn "Iris REPL - Version 1.0.0" >>= \_ ->
-    forever $ do
-        stdin <- prompt "λ> "
-        eval' stdin
-getOpt (Opt (Just file)) = readFile file >>= eval
+-- getOpt (Opt Nothing) = putStrLn "Iris REPL - Version 1.0.0" >>= \_ ->
+--     forever $ do
+--         stdin <- prompt "λ> "
+--         eval' stdin
+getOpt (Opt (Just file)) = readFile file >>= eval file
 
 headerInfo :: ParserInfo Opt
 headerInfo = info

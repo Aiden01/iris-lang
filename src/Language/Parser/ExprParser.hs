@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes, LiberalTypeSynonyms #-}
 module Language.Parser.ExprParser
     ( parseExpr
     , parseCall
@@ -14,9 +15,25 @@ import qualified Text.Megaparsec               as Mega
 import qualified Text.Megaparsec.Char          as MegaC
 import           Control.Monad.Combinators.Expr
 import qualified Data.Text                     as T
+import           Language.Typing.Types
+import           Control.Comonad.Cofree
+import           Text.Megaparsec.Pos
+import           Data.Void
+import           Data.Function                  ( on )
+import           Control.Comonad                ( extract )
 
-parseCallExpr :: ParserT Expr
-parseCallExpr = do
+type Parsed f = Cofree f SourceSpan
+
+located :: ParserT (f (Cofree f SourceSpan)) -> ParserT (Cofree f SourceSpan)
+located p = do
+    s <- Mega.getSourcePos
+    x <- p
+    e <- Mega.getSourcePos
+    pure (SourceSpan s e :< x)
+
+
+parseCallExpr :: ParserT (Parsed ExprF)
+parseCallExpr = located $ do
     (fn, params) <- lexeme parseCall
     return $ CallExpr fn params
 
@@ -48,15 +65,13 @@ parseArray = do
     exprs <- brackets (commaSep parseExpr)
     return (Array exprs)
 
-parseRange :: ParserT Expr
-parseRange = brackets p
+parseRange :: ParserT (Parsed ExprF)
+parseRange = located $ brackets p
   where
     p = do
         from  <- parseLiteral <|> parseVarExpr <|> parens parseExpr
         range <- T.unpack <$> (symbol "..." <|> symbol "..")
-        to    <- parseExpr >>= \expr -> case range of
-            ".."  -> return $ BinOp Sub expr (Literal $ Number 1)
-            "..." -> return expr
+        to    <- parseExpr
         return $ Range from to
 
 parseObject :: ParserT Lit
@@ -71,8 +86,8 @@ parseObject = do
         return (key, value)
 
 
-parseLiteral :: ParserT Expr
-parseLiteral = Literal <$> litParser
+parseLiteral :: ParserT (Parsed ExprF)
+parseLiteral = located $ Literal <$> litParser
   where
     litParser :: ParserT Lit
     litParser =
@@ -84,37 +99,46 @@ parseLiteral = Literal <$> litParser
             <|> parseObject
             <|> parseBool
 
-parseVarExpr :: ParserT Expr
-parseVarExpr = Var <$> identifier
+parseVarExpr :: ParserT (Parsed ExprF)
+parseVarExpr = located $ Var <$> identifier
 
-parseLambda :: ParserT Expr
-parseLambda = do
-    params <- parens (commaSep identifier)
-    _      <- symbol "->"
-    expr   <- parseExpr
-    return $ Lambda params expr
+parseLambda :: ParserT (Parsed ExprF)
+parseLambda = located parseLam
+  where
+    parseLam = do
+        params <- parens (commaSep identifier)
+        _      <- symbol "->"
+        expr   <- parseExpr
+        return $ Lambda params expr
+
+binOp :: String -> BinOp -> ParserT (Expr -> Expr -> Expr)
+binOp s op = operator s
+    >> return (\lhs rhs -> ((<>) `on` extract) lhs rhs :< BinOp op lhs rhs)
+
+unOp :: String -> UnaryOp -> ParserT (Expr -> Expr)
+unOp s op = operator s >> return (\lhs -> extract lhs :< UnaryOp op lhs)
 
 
-parseExpr :: ParserT Expr
+parseExpr :: ParserT (Parsed ExprF)
 parseExpr = makeExprParser term opTable
   where
     opTable =
-        [ [InfixL (operator "++" >> return (BinOp Concat))]
-        , [InfixL (operator "at" >> return (BinOp At))]
-        , [Postfix (operator "." >>= return (flip AttrExpr <$> identifier))]
-        , [InfixL (operator "==" >> return (BinOp Eq))]
-        , [Prefix (operator "-" >> return (UnaryOp Negate))]
-        , [InfixL (operator "!=" >> return (BinOp NotEq))]
-        , [Prefix (operator "not" >> return (UnaryOp Not))]
-        , [InfixL (operator "&&" >> return (BinOp And))]
-        , [InfixL (operator "||" >> return (BinOp Or))]
-        , [InfixL (operator "^" >> return (BinOp Pow))]
-        , [InfixL (operator "*" >> return (BinOp Mult))]
-        , [InfixL (operator "/" >> return (BinOp Div))]
-        , [InfixL (operator "+" >> return (BinOp Add))]
-        , [InfixL (operator "-" >> return (BinOp Sub))]
-        , [InfixL (operator "<" >> return (BinOp Lower))]
-        , [InfixL (operator ">" >> return (BinOp Greater))]
+        [ [InfixL (binOp "++" Concat)]
+        , [InfixL (binOp "at" At)]
+        -- , [Postfix (operator "." >>= return (flip AttrExpr <$> identifier))]
+        , [InfixL (binOp "==" Eq)]
+        , [Prefix (unOp "-" Negate)]
+        , [InfixL (binOp "!=" NotEq)]
+        , [Prefix (unOp "not" Not)]
+        , [InfixL (binOp "&&" And)]
+        , [InfixL (binOp "||" Or)]
+        , [InfixL (binOp "^" Pow)]
+        , [InfixL (binOp "*" Mult)]
+        , [InfixL (binOp "/" Div)]
+        , [InfixL (binOp "+" Add)]
+        , [InfixL (binOp "-" Sub)]
+        , [InfixL (binOp "<" Lower)]
+        , [InfixL (binOp ">" Greater)]
         ]
 
 
@@ -128,18 +152,21 @@ term = lexeme
     <|> parseVarExpr
     )
 
-parseTypeExpr, tInt, tString, tChar, tFloat, varT :: ParserT TypeExpr
+parseTypeExpr, tInt, tString, tChar, tFloat :: ParserT Type
 parseTypeExpr =
     (   Mega.try tInt
         <|> Mega.try tString
         <|> Mega.try tChar
-        <|> Mega.try tFloat
-        <|> Mega.try varT
+        <|> Mega.try tArray
+        <|> tFloat
         )
         Mega.<?> "type expression"
 
 tInt = keyword "Int" *> pure TInt
 tString = keyword "String" *> pure TString
 tChar = keyword "Int" *> pure TChar
-tFloat = keyword "Int" *> pure TFloat
-varT = VarT <$> identifier
+tFloat = keyword "Float" *> pure TFloat
+tArray = do
+    keyword "Array"
+    t0 <- brackets parseTypeExpr
+    pure $ TArray t0

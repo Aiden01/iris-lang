@@ -1,38 +1,12 @@
-fn reduce(f, list, default) {
-    val acc = default;
-    for (val x : list) {
-        acc = f(x, acc);
-    }
-    return acc;
+fn add(x: Int, y: Int) {
+   return x + y;
 }
 
-val arr = [1..19];
-print(arr);
+val x: Int = 5;
+val x: Int = 4;
 
-fn any(f, list) {
-    val passes = False;
-    for (val x : list) {
-        if (f(x)) {
-            passes = True;
-        }
-    }
-    return passes;
+fn test() {
+   return add2(1, 2);
 }
 
-fn map(f, list) {
-    val newList = [];
-    for (val x : list) {
-        newList = newList ++ [f(x)];
-    }
-    return newList;
-}
-
-fn every(f, list) {
-    return reduce((n, acc) -> f(n), list, False);
-}
-
-
-print(any((n) -> n < 2, [4, 5, 6, 1, 7]));
-print(map((n) -> n * 2, [4, 5, 6, 1, 7]));
-print(every((n) -> n < 5, [1, 1, 2, 3, 4]));
-print(reduce((n, acc) -> n + acc, [1, 1, 2, 3, 4], 0));
+print(test());

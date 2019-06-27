@@ -1,4 +1,4 @@
-fn fold(f, list, default) {
+/*fn fold(f, list, default) {
     val acc = default;
     for (val x : list) {
         acc = f(x, acc);
@@ -26,7 +26,7 @@ fn map(f, list) {
 }
 
 fn every(f, list) {
-    return reduce((n, acc) -> f(n), list, False);
+    return reduce((n, acc) -> acc && f(n), list, False);
 }
 
 fn push(x, list) {
@@ -46,5 +46,5 @@ fn filter(f, list) {
 fn randElement(list) {
     val index = randInt(0, len(list) - 1);
     return list at index;
-}
+}*/
 
