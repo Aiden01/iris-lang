@@ -5,5 +5,18 @@ fn fib(n: Int) {
     return fib(n - 1) + fib(n - 2);
 }
 
+val arr: Array[Int] = [1, 2, 3, 4];
+
+for (val x : arr) {
+    print(x);
+}
 
 print(fib(10));
+
+
+fn add(x: Int, y: Int): Int {
+    return x + y;
+}
+
+val x: Int = add(2, 2);
+

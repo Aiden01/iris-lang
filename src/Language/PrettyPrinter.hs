@@ -1,124 +1,89 @@
+{-# LANGUAGE FlexibleInstances #-}
 module Language.PrettyPrinter
-    ( green
-    , red
-    )
+  ( green
+  , red
+  )
 where
 
 import           System.Console.ANSI
-
-green :: Show a => a -> IO ()
-green msg = do
-    setSGR [SetColor Foreground Vivid Green]
-    print msg
-    setSGR [Reset]
-
-red :: String -> IO ()
-red msg = do
-    setSGR [SetColor Foreground Vivid Red]
-    putStrLn msg
-    setSGR [Reset]
-{-import           Language.Parser.AST
-import           Data.List                      ( intercalate )
-import qualified Data.Map                      as M
-
-import           Text.PrettyPrint.Leijen        ( text
-                                                , indent
-                                                , double
+import           Text.PrettyPrint.ANSI.Leijen   ( Pretty
+                                                , pretty
                                                 , integer
                                                 , (<>)
                                                 , (<+>)
                                                 , Doc
-                                                , char
-                                                , vcat
-                                                , linebreak
-                                                , vsep
+                                                , text
                                                 , double
+                                                , char
+                                                , bool
+                                                , linebreak
+                                                , indent
+                                                , vsep
+                                                , hsep
                                                 )
-import           Data.Map                       ( toList )
-import           Data.List                      ( intercalate )
-import           Data.Maybe                     ( fromMaybe )
-
+import           Language.Parser.AST
 import qualified Data.Text                     as T
+import           Control.Comonad.Cofree
+import           Language.Typing.Types
+
+green :: Show a => a -> IO ()
+green msg = do
+  setSGR [SetColor Foreground Vivid Green]
+  print msg
+  setSGR [Reset]
+
+red :: String -> IO ()
+red msg = do
+  setSGR [SetColor Foreground Vivid Red]
+  putStrLn msg
+  setSGR [Reset]
+
+textWithColon :: String -> Doc
+textWithColon s = text s <> text ": "
+
+brackets, parens :: Doc -> Doc
+brackets doc = text "[" <> linebreak <> doc <> linebreak <> text "]"
+parens doc = text "(" <> doc <> text ")"
+
+vsepIndent :: [Doc] -> Doc
+vsepIndent = vsep . map (indent 2)
 
 
+instance Pretty Lit where
+  pretty (Number x) = textWithColon "Int" <> integer x
+  pretty (Float x) = textWithColon "Float" <> double x
+  pretty (Char' x) = textWithColon "Char" <> char x
+  pretty (Str x) = textWithColon "String" <> text (T.unpack x)
+  pretty (Array x) = textWithColon "Array" <> brackets (vsepIndent $ map pretty x)
+  pretty (Object x) = textWithColon "Object"
+  pretty (Boolean x) = textWithColon "Bool" <> bool x
+  pretty Void = text "Void"
 
-wrapBlock :: Doc -> Doc
-wrapBlock doc = text "[" <> linebreak <> doc <> linebreak <> text "]"
+instance Pretty Expr where pretty (_ :< expr) = pretty expr
 
-prettyProgram :: Program -> Doc
-prettyProgram (Program stmts) =
-    text "Program " <> wrapBlock (vsep $ map (indent 2 . prettyStmt) stmts)
+instance Pretty (ExprF Expr) where
+  pretty (Literal lit) = pretty lit
+  pretty (BinOp op expr expr') = textWithColon (show op) <> linebreak <> vsepIndent [pretty expr, pretty expr']
+  pretty (UnaryOp op expr) = textWithColon (show op) <> pretty expr
+  pretty (CallExpr name params) = textWithColon "Call" <> pretty name <+> text "params" <+> brackets (vsepIndent $ map pretty params)
+  pretty (Var name) = textWithColon "Var" <> text name
+  pretty (Lambda params expr) = textWithColon "λ" <> parens (hsep $ map text params) <+> text "->" <+> pretty expr
+  pretty (Range expr' expr) = textWithColon "Range" <> text "From" <+> pretty expr' <+> text "To" <+> pretty expr
 
-prettyExprPos :: ExprPos -> Doc
-prettyExprPos (ExprPos expr _) = prettyExpr expr
+instance Pretty Param where
+  pretty (Param name t) = textWithColon name <> pretty (show t)
 
-prettyExpr :: Expr -> Doc
-prettyExpr (Literal lit) = prettyLit lit
-prettyExpr (BinOp binOp expr1 expr2) =
-    text "Binary Op => " <> prettyBinOp binOp expr1 expr2
-prettyExpr (UnaryOp unaryOp expr) =
-    text "Unary Op => " <> prettyUnaryOp unaryOp expr
-prettyExpr (Var name) = text "Var " <> text name
-prettyExpr (CallExpr name args) =
-    text "FnCall"
-        <+> text name
-        <+> text "("
-        <>  (vsep $ map ((<+> text ",") . prettyExprPos) args)
-        <>  text ")"
+instance Pretty Statement where
+  pretty (VarDecl name (Just t) expr) = textWithColon ("val " <> name) <> text (show t) <+> text "=" <+> pretty expr
+  pretty (Assign name expr _) = textWithColon "Assign" <> text name <+> text "=" <+> pretty expr
+  pretty (IfStmt expr stmts elseBlock) = textWithColon "If" <> linebreak <> vsepIndent [textWithColon "then" <> pretty (Program stmts), textWithColon "else" <> pretty (Program <$> elseBlock)]
+  pretty (WhileStmt expr stmts) = textWithColon "While" <> pretty expr <+> brackets (pretty $ Program stmts)
+  pretty (FnDecl name params stmts t) = textWithColon "Fn" <> text name <> parens (hsep $ map (\ p -> pretty p <> text ",") params) <+> pretty (Program stmts)
+  pretty (ReturnStmt expr) = textWithColon "Return" <> pretty expr
+  pretty (ForStmt name expr stmts) = textWithColon "ForStmt" <> text name <+> text ":" <+> pretty expr <+> pretty (Program stmts)
 
-prettyBinOp :: BinOp -> Expr -> Expr -> Doc
-prettyBinOp op expr1 expr2 =
-    text (show op ++ " (")
-        <> prettyExpr expr1
-        <> text ")"
-        <> text "("
-        <> prettyExpr expr2
-        <> text ")"
+instance Pretty Program where
+  pretty (Program stmts) = textWithColon "Program" <> brackets (vsepIndent $ map pretty stmts)
 
-prettyUnaryOp :: UnaryOp -> Expr -> Doc
-prettyUnaryOp op expr = text (show op ++ " (") <> prettyExpr expr <> text ")"
-
-prettyLit :: Lit -> Doc
-prettyLit (Number  n   ) = text "Int " <> integer n
-prettyLit (Float   f   ) = text "Float " <> double f
-prettyLit (Str     str ) = text "String " <> text (T.unpack str)
-prettyLit (Char'   c   ) = text "Char " <> char c
-prettyLit (Boolean bool) = text "Boolean " <> text (show bool)
-prettyLit (Array exprs) =
-    text "Array" <+> wrapBlock (vcat (map (indent 2 . prettyExpr) exprs))
-
-prettyLit (Object entries) = text "Object"
-    <+> wrapBlock (vsep $ map (indent 2 . prettyEntry) $ toList entries)
-prettyEntry :: (String, Expr) -> Doc
-prettyEntry (key, value) = indent 2 $ text key <> text ": " <> prettyExpr value
-
-
-wrapProgramBlock :: Maybe Program -> Doc
-wrapProgramBlock block =
-    wrapBlock (fromMaybe (text "empty") $ (indent 2 . prettyProgram) <$> block)
-
-prettyStmt :: Statement -> Doc
-prettyStmt (VarDecl name t expr) =
-    text ("VarDecl " ++ name)
-        <+> text ":"
-        <+> fromMaybe (text "unknown") (text <$> (show <$> t))
-        <+> text "="
-        <+> prettyExprPos expr
-
-prettyStmt (FnDecl name args block) =
-    text ("FnDecl " ++ name)
-        <+> text "("
-        <>  text
-                (intercalate
-                    ", "
-                    (map (\(Param n t) -> n ++ " " ++ ": " ++ show t) args)
-                )
-        <>  text ")"
-        <+> wrapProgramBlock block
-prettyStmt (IfStmt expr block elseBlock) =
-    text "IfStmt"
-        <+> text "("
-        <>  prettyExprPos expr
-        <>  text ")"
-        <+> wrapProgramBlock block
--}
+instance Show Program where
+    show = show . pretty
