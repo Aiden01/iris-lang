@@ -20,6 +20,8 @@ import qualified Data.Text                     as T
 import           Text.Megaparsec
 import           Text.Megaparsec.Pos
 import           Control.Comonad.Cofree
+import           Text.PrettyPrint.ANSI.Leijen
+
 
 data Type
     = TInt
@@ -70,13 +72,15 @@ data ExprF a
     | Range a a
     deriving (Functor)
 
-data SourceSpan = SourceSpan { begin, end :: SourcePos } deriving (Semigroup)
+data SourceSpan = SourceSpan { begin, end :: SourcePos }
 
+instance Semigroup SourceSpan where
+  SourceSpan (SourcePos file0 line0 end0) (SourcePos _ line1 end1) <> SourceSpan (SourcePos file2 line2 end2) (SourcePos _ line3 end3) = SourceSpan (SourcePos (file0 <> file2) (line0 <> line2) (end0 <> end2)) (SourcePos (file0 <> file2) (line1 <> line3) (end1 <> end3))
 type Expr = Cofree ExprF SourceSpan
 
 data UnaryOp
     = Not
-    | Negate
+    | Negate deriving (Show)
 
 data BinOp
     = Add
@@ -91,7 +95,7 @@ data BinOp
     | At
     | NotEq
     | Eq
-    | Greater
+    | Greater deriving (Show)
 
 
 
@@ -101,7 +105,7 @@ data StmtContext = InFunction | TopLevel
 
 data Statement
     = VarDecl String (Maybe Type) Expr
-    | FnDecl String [Param] [Statement]
+    | FnDecl String [Param] [Statement] Type
     | IfStmt Expr  [Statement]  (Maybe [Statement])
     | WhileStmt Expr [Statement]
     | CallStmt String [Expr]
@@ -111,6 +115,3 @@ data Statement
     | UseStmt String
 
 data Program = Program [Statement]
-
-instance Show Program where
-    show _ = "Not implemented yet"

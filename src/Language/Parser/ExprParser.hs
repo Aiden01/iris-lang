@@ -153,7 +153,7 @@ term = lexeme
     )
 
 parseTypeExpr, tInt, tString, tChar, tFloat :: ParserT Type
-parseTypeExpr =
+parseTypeExpr = lexeme
     (   Mega.try tInt
         <|> Mega.try tString
         <|> Mega.try tChar

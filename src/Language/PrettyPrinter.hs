@@ -78,7 +78,7 @@ instance Pretty Statement where
   pretty (Assign name expr _) = textWithColon "Assign" <> text name <+> text "=" <+> pretty expr
   pretty (IfStmt expr stmts elseBlock) = textWithColon "If" <> linebreak <> vsepIndent [textWithColon "then" <> pretty (Program stmts), textWithColon "else" <> pretty (Program <$> elseBlock)]
   pretty (WhileStmt expr stmts) = textWithColon "While" <> pretty expr <+> brackets (pretty $ Program stmts)
-  pretty (FnDecl name params stmts t) = textWithColon "Fn" <> text name <> parens (hsep $ map (\ p -> pretty p <> text ",") params) <+> pretty (Program stmts)
+  pretty (FnDecl name params stmts t) = textWithColon "Fn" <> text name <> parens (hsep $ map (\ p -> pretty p <> text ",") params) <+> text (show t) <+> pretty (Program stmts)
   pretty (ReturnStmt expr) = textWithColon "Return" <> pretty expr
   pretty (ForStmt name expr stmts) = textWithColon "ForStmt" <> text name <+> text ":" <+> pretty expr <+> pretty (Program stmts)
 

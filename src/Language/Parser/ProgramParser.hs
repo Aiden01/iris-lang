@@ -46,15 +46,16 @@ parseAssignStmt ctx = do
 parseFnDeclStmt :: ParserT Statement
 parseFnDeclStmt = do
     keyword "fn"
-    name   <- identifier
-    params <- parens (commaSep param)
-    block  <- (braces $ Mega.many $ lexeme $ parseStatement InFunction)
-    return (FnDecl name params block)
+    name       <- identifier
+    params     <- parens (commaSep param)
+    returnType <- colon *> parseTypeExpr
+    block      <- (braces $ Mega.many $ lexeme $ parseStatement InFunction)
+    return (FnDecl name params block returnType)
   where
     param :: ParserT Param
     param = do
         name     <- identifier
-        typeExpr <- symbol ":" *> parseTypeExpr
+        typeExpr <- colon *> parseTypeExpr
         return (Param name typeExpr)
 
 parseCallStmt :: ParserT Statement

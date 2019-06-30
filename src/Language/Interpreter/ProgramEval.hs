@@ -63,14 +63,21 @@ evalStatements (stmt            : stmts) ctx     = evalStmt stmt ctx >>= \case
     VoidV -> evalStatements stmts ctx
     value -> pure value
 
+evalForStmt :: String -> [Value] -> [Statement] -> EvalContext -> EvalState ()
+evalForStmt _  []       _     _   = pure ()
+evalForStmt id (v : vs) stmts ctx = do
+    enterScope
+    insertInScope id v
+    evalStatements stmts ctx
+    leaveScope
+    evalForStmt id vs stmts ctx
+
 evalStmt :: Statement -> EvalContext -> EvalState Value
-evalStmt (ReturnStmt _) TopLevelCtx =
-    throwError $ Custom undefined "Illegal return statement"
 evalStmt (VarDecl name _ expr) _ = do
     v <- evalExpr expr
     insertInScope name v
     pure VoidV
-evalStmt (FnDecl name paramsT stmts) _ =
+evalStmt (FnDecl name paramsT stmts _) _ =
     let params = map (\(Param s _) -> s) paramsT
         fn     = Fn (\args -> invokeFn stmts args params)
     in  insertInScope name fn *> pure VoidV
@@ -85,6 +92,13 @@ evalStmt (IfStmt expr stmts elseBlock) ctx = do
         (True , _          ) -> evalStatements stmts ctx
         (False, Just stmts') -> evalStatements stmts' ctx
         (False, Nothing    ) -> pure VoidV
+evalStmt (WhileStmt expr stmts) ctx = evalExpr expr >>= \case
+    VBool True  -> evalStatements stmts ctx
+    VBool False -> pure VoidV
+evalStmt (ForStmt id expr stmts) ctx = evalExpr expr >>= \case
+    VList []   -> pure VoidV
+    VList list -> evalForStmt id list stmts ctx *> pure VoidV
+
 evalStmt (ReturnStmt expr   ) InFnCtx = evalExpr expr
 evalStmt (Assign name expr _) _       = do
     v <- evalExpr expr

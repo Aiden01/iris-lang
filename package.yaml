@@ -35,6 +35,7 @@ dependencies:
   - random
   - free
   - comonad
+  - ansi-wl-pprint
 
 library:
   source-dirs: src
