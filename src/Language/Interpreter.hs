@@ -1,8 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Interpreter
-    ( eval
-    )
+  ( eval
+  )
 where
 
 import           Language.Parser.ProgramParser
@@ -33,12 +33,15 @@ import           Control.Monad.State            ( evalStateT )
 
 eval :: String -> String -> IO ()
 eval fileName buffer =
-    return (parse (parseProgram <* eof) fileName (T.pack buffer)) >>= \case
-        Left  e   -> red $ errorBundlePretty $ e
-        Right ast -> do
-            (runExceptT $ evalStateT (evalProgram ast) [defaultEnv]) >>= \case
-                Left  e -> red $ show e
-                Right _ -> return ()
+  return (parse (parseProgram <* eof) fileName (T.pack buffer)) >>= \case
+    Left  e   -> red $ errorBundlePretty $ e
+    Right ast -> do
+      tc ast >>= \case
+        Left e -> red $ show e
+        Right _ ->
+          (runExceptT $ evalStateT (evalProgram ast) [defaultEnv]) >>= \case
+            Left  e -> red $ show e
+            Right _ -> return ()
 
 
 -- eval' :: String -> IO ()

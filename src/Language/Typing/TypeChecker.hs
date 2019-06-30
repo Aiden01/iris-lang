@@ -80,21 +80,41 @@ tcBinOpType op e@(pos :< _) e' = do
   t0 <- tcExprType e
   t1 <- tcExprType e'
   case (op, t0, t1) of
-    (Add, TInt  , TInt  ) -> pure TInt
-    (Add, TFloat, TFloat) -> pure TFloat
-    (Add, TFloat, TInt  ) -> pure TFloat
-    (Add, TInt  , TFloat) -> pure TFloat
-    (Add, TInt  , b     ) -> throwError $ Mismatch TInt b pos
-    (Add, a     , TInt  ) -> throwError $ Mismatch TInt a pos
-    (Add, TFloat, b     ) -> throwError $ Mismatch TFloat b pos
-    (Add, a     , TFloat) -> throwError $ Mismatch TFloat a pos
+    (Add , TInt  , TInt  ) -> pure TInt
+    (Add , TFloat, TFloat) -> pure TFloat
+    (Add , TFloat, TInt  ) -> pure TFloat
+    (Add , TInt  , TFloat) -> pure TFloat
+    (Add , TInt  , b     ) -> throwError $ Mismatch TInt b pos
+    (Add , a     , TInt  ) -> throwError $ Mismatch TInt a pos
+    (Add , TFloat, b     ) -> throwError $ Mismatch TFloat b pos
+    (Add , a     , TFloat) -> throwError $ Mismatch TFloat a pos
+    (Mult, TInt  , TInt  ) -> pure TInt
+    (Mult, TFloat, TFloat) -> pure TFloat
+    (Mult, TFloat, TInt  ) -> pure TFloat
+    (Mult, TInt  , TFloat) -> pure TFloat
+    (Mult, TInt  , b     ) -> throwError $ Mismatch TInt b pos
+    (Mult, a     , TInt  ) -> throwError $ Mismatch TInt a pos
+    (Mult, TFloat, b     ) -> throwError $ Mismatch TFloat b pos
+    (Mult, a     , TFloat) -> throwError $ Mismatch TFloat a pos
+    (Sub , TInt  , TInt  ) -> pure TInt
+    (Sub , TFloat, TFloat) -> pure TFloat
+    (Sub , TFloat, TInt  ) -> pure TFloat
+    (Sub , TInt  , TFloat) -> pure TFloat
+    (Sub , TInt  , b     ) -> throwError $ Mismatch TInt b pos
+    (Sub , a     , TInt  ) -> throwError $ Mismatch TInt a pos
+    (Sub , TFloat, b     ) -> throwError $ Mismatch TFloat b pos
+    (Sub , a     , TFloat) -> throwError $ Mismatch TFloat a pos
 
-tcPatternType :: AnPattern -> TcState Type
-tcPatternType (pos :< PLit lit) = tcLitType lit pos
+tcPatternType :: AnPattern -> Type -> Expr -> TcState Type
+tcPatternType (pos :< PLit lit ) _ _    = tcLitType lit pos
+tcPatternType (pos :< PVar name) t expr = do
+  enterScope
+  insertInScope name t
+  tcExprType expr <* leaveScope
 
 tcBranch :: Type -> Type -> (AnPattern, Expr) -> TcState ()
 tcBranch expectedPT expectedExprT (p, expr@(pos :< _)) = do
-  t0 <- tcPatternType p
+  t0 <- tcPatternType p expectedPT expr
   t1 <- tcExprType expr
   compareTypes [expectedPT, expectedExprT] [t0, t1] pos
 
@@ -110,7 +130,7 @@ tcExprType (pos0 :< CallExpr expr@(pos1 :< _) params) = do
     _                   -> throwError $ Custom "not a function" pos0
 tcExprType (pos :< Match expr ((p, e) : branches)) = do
   expectedPT <- tcExprType expr
-  t0         <- tcPatternType p
+  t0         <- tcPatternType p expectedPT e
   compareTypes [expectedPT] [t0] pos
   expectedExprT <- tcExprType e
   traverse (tcBranch expectedPT expectedExprT) branches
@@ -215,7 +235,5 @@ tcStmtType (WhileStmt expr@(pos :< _) stmts) inFn = tcExprType expr >>= \case
 tcProgram :: Program -> TcState ()
 tcProgram (Program stmts) = tcStmtsType stmts False
 
-tc :: Program -> IO ()
-tc p = (runExceptT $ evalStateT (tcProgram p) [defaultEnvType]) >>= \case
-  Left  e -> red $ show e
-  Right _ -> green "Type checked!"
+tc :: Program -> IO (Either TypeError ())
+tc p = runExceptT $ evalStateT (tcProgram p) [defaultEnvType]

@@ -6,5 +6,5 @@ fn factorial(n: Int): Int {
    };
 }
 
-print(factorial(3));
+print(factorial(15));
 
