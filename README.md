@@ -5,15 +5,24 @@ A simple programing language for my own learning
 ## Syntax example
 
 ```
-val obj = {
-    j: 4,
-    foo: 7
-};
-
-fn f (a: Int, b: Int)  {
+fn f (a: Int, b: Int): Int  {
     return a + b;
 }
+
+val x = add(1, 2);
+print(x);
+
 ```
+
+## Features
+- Algebraic data types
+- High order functions
+- Type inference 
+
+## Roadmap
+[x] - Parser
+[x] - Interpreter
+[ ] - Type system
 
 ## Why?
 
