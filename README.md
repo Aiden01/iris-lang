@@ -20,9 +20,9 @@ print(x);
 - Type inference 
 
 ## Roadmap
-[x] - Parser
-[x] - Interpreter
-[ ] - Type system
+- [x] Parser
+- [x] Interpreter
+- [ ] Type system
 
 ## Why?
 
