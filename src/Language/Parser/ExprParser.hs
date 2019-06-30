@@ -88,10 +88,10 @@ parseObject = do
 
 parseLiteral :: ParserT (Parsed ExprF)
 parseLiteral = located $ Literal <$> litParser
-  where
-    litParser :: ParserT Lit
-    litParser =
-        parseChar
+
+litParser :: ParserT Lit
+litParser =
+  parseChar
             <|> parseString
             <|> Mega.try parseFloat
             <|> parseInt
@@ -141,6 +141,24 @@ parseExpr = makeExprParser term opTable
         , [InfixL (binOp ">" Greater)]
         ]
 
+parsePattern :: ParserT (Parsed Pattern)
+parsePattern = located (litPattern <|> PVar <$> identifier <|> symbol "_" *> pure PHole)
+  where
+    litPattern = PLit <$> litParser
+
+parseMatchExpr :: ParserT (Parsed ExprF)
+parseMatchExpr = located $ matchExpr
+  where
+    matchExpr = do
+          keyword "match"
+          expr <- parens parseExpr
+          branches <- braces $ commaSep parseBranch
+          return $ Match expr branches
+    parseBranch = do
+      p <- lexeme parsePattern
+      symbol "->"
+      expr <- parseExpr
+      return (p, expr)
 
 term :: ParserT Expr
 term = lexeme
@@ -150,6 +168,7 @@ term = lexeme
     <|> parens parseExpr
     <|> Mega.try parseCallExpr
     <|> parseVarExpr
+    <|> parseMatchExpr
     )
 
 parseTypeExpr, tInt, tString, tChar, tFloat :: ParserT Type

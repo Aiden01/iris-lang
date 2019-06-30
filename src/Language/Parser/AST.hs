@@ -11,6 +11,8 @@ module Language.Parser.AST
     , SourceSpan(..)
     , Type(..)
     , StmtContext(..)
+    , Pattern(..)
+    , AnPattern
     )
 where
 
@@ -21,6 +23,7 @@ import           Text.Megaparsec
 import           Text.Megaparsec.Pos
 import           Control.Comonad.Cofree
 import           Text.PrettyPrint.ANSI.Leijen
+
 
 
 data Type
@@ -60,6 +63,12 @@ data Lit
     | Void
 
 
+data Pattern a
+  = PLit Lit
+  | PVar String
+  | PHole
+  deriving (Functor)
+
 
 data ExprF a
     = Literal Lit
@@ -70,13 +79,16 @@ data ExprF a
     | CallExpr a [a]
     | Lambda [String] a
     | Range a a
+    | Match a [(AnPattern, a)]
     deriving (Functor)
 
 data SourceSpan = SourceSpan { begin, end :: SourcePos }
 
 instance Semigroup SourceSpan where
   SourceSpan (SourcePos file0 line0 end0) (SourcePos _ line1 end1) <> SourceSpan (SourcePos file2 line2 end2) (SourcePos _ line3 end3) = SourceSpan (SourcePos (file0 <> file2) (line0 <> line2) (end0 <> end2)) (SourcePos (file0 <> file2) (line1 <> line3) (end1 <> end3))
+
 type Expr = Cofree ExprF SourceSpan
+type AnPattern = Cofree Pattern SourceSpan
 
 data UnaryOp
     = Not

@@ -1,6 +1,10 @@
 
-fn add(x: Int, y: Int): Int {
-   return x + y;
+fn factorial(n: Int): Int {
+   return match (n) {
+     0 -> 1,
+     n -> n * factorial (n - 1)
+   };
 }
 
-val x = add(1, 2);
+print(factorial(3));
+

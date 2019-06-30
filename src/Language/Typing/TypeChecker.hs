@@ -15,6 +15,8 @@ import           Language.Parser.AST            ( Lit(..)
                                                 , ExprF(..)
                                                 , Type(..)
                                                 , SourceSpan(..)
+                                                , Pattern(..)
+                                                , AnPattern
                                                 , StmtContext(..)
                                                 )
 import           Control.Comonad.Cofree
@@ -87,6 +89,15 @@ tcBinOpType op e@(pos :< _) e' = do
     (Add, TFloat, b     ) -> throwError $ Mismatch TFloat b pos
     (Add, a     , TFloat) -> throwError $ Mismatch TFloat a pos
 
+tcPatternType :: AnPattern -> TcState Type
+tcPatternType (pos :< PLit lit) = tcLitType lit pos
+
+tcBranch :: Type -> Type -> (AnPattern, Expr) -> TcState ()
+tcBranch expectedPT expectedExprT (p, expr@(pos :< _)) = do
+  t0 <- tcPatternType p
+  t1 <- tcExprType expr
+  compareTypes [expectedPT, expectedExprT] [t0, t1] pos
+
 tcExprType :: Expr -> TcState Type
 tcExprType (pos  :< Literal lit                     ) = tcLitType lit pos
 tcExprType (pos  :< Var     name                    ) = lookupScope name pos
@@ -97,7 +108,13 @@ tcExprType (pos0 :< CallExpr expr@(pos1 :< _) params) = do
   case fnT of
     Fn expected returnT -> compareTypes given expected pos1 *> pure returnT
     _                   -> throwError $ Custom "not a function" pos0
-
+tcExprType (pos :< Match expr ((p, e) : branches)) = do
+  expectedPT <- tcExprType expr
+  t0         <- tcPatternType p
+  compareTypes [expectedPT] [t0] pos
+  expectedExprT <- tcExprType e
+  traverse (tcBranch expectedPT expectedExprT) branches
+  pure expectedExprT
 tcStmtsType :: [Statement] -> Bool -> TcState ()
 tcStmtsType [] _ = pure ()
 tcStmtsType (stmt : stmts) inFn =

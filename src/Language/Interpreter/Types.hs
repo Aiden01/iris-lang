@@ -1,16 +1,16 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, FunctionalDependencies #-}
 
 module Language.Interpreter.Types
-    ( Scope
-    , Value(..)
-    , EvalState
-    , VError(..)
-    , Env
-    , insert
-    , get
-    , modify
-    , exists
-    )
+  ( Scope
+  , Value(..)
+  , EvalState
+  , VError(..)
+  , Env
+  , insert
+  , get
+  , modify
+  , exists
+  )
 where
 
 import qualified Data.Map                      as M
@@ -52,6 +52,15 @@ data Value
     | VObject (M.Map String Value)
     | Fn ([Value] -> EvalState Value)
 
+instance Eq Value where
+  VInt a == VInt b = a == b
+  VFloat a == VFloat b = a == b
+  VChar a == VChar b = a == b
+  VString a == VString b = a == b
+  VBool a == VBool b = a == b
+  VoidV == VoidV = True
+  VList a == VList b = a == b
+  _ == _ = False
 
 data VError
     = Unbound SourcePos String

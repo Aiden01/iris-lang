@@ -63,6 +63,7 @@ keywords = S.fromList
     , "return"
     , "for"
     , "use"
+    , "match"
     , "Array"
     ]
 

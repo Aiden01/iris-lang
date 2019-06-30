@@ -1,8 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Interpreter.ExprEval
-    ( evalExpr
-    )
+  ( evalExpr
+  )
 where
 
 import           Language.Parser.AST     hiding ( Fn )
@@ -29,10 +29,10 @@ import           Control.Applicative            ( (<|>) )
 
 lookupScope :: String -> SourceSpan -> EvalState Value
 lookupScope id pos =
-    S.gets lookup' >>= maybe (throwError $ Unbound (begin pos) id) pure
-  where
-    lookup' :: [Scope Value] -> Maybe Value
-    lookup' = foldr (<|>) Nothing . map (get id)
+  S.gets lookup' >>= maybe (throwError $ Unbound (begin pos) id) pure
+ where
+  lookup' :: [Scope Value] -> Maybe Value
+  lookup' = foldr (<|>) Nothing . map (get id)
 
 enterScope :: EvalState ()
 enterScope = S.modify ((:) (M.fromList []))
@@ -43,6 +43,19 @@ leaveScope = S.modify tail
 insertInScope :: String -> Value -> EvalState ()
 insertInScope name t = S.modify (\(s : ss) -> insert name t s : ss)
 
+getMatchingBranch :: [(AnPattern, Expr)] -> Value -> EvalState (Maybe Value)
+getMatchingBranch []                            _ = pure Nothing
+getMatchingBranch (((_ :< p), expr) : branches) v = case (p, expr, v) of
+  (PHole    , expr, _) -> evalExpr expr >>= pure . Just
+  (PVar name, expr, v) -> do
+    enterScope
+    insertInScope name v
+    (evalExpr expr <* leaveScope) >>= pure . Just
+  (PLit lit, expr, v) -> do
+    v' <- evalLiteral lit
+    if v' == v
+      then evalExpr expr >>= pure . Just
+      else getMatchingBranch branches v
 
 evalExpr :: Expr -> EvalState Value
 evalExpr (pos :< expr) = evalExpr' expr pos
@@ -50,46 +63,48 @@ evalExpr (pos :< expr) = evalExpr' expr pos
 evalExpr' :: ExprF (Expr) -> SourceSpan -> EvalState Value
 evalExpr' (Literal lit                             ) pos = evalLiteral lit
 evalExpr' (BinOp op (pos' :< expr) (pos'' :< expr')) pos = do
-    x <- evalExpr' expr pos'
-    y <- evalExpr' expr' pos''
-    evalBinOp op x y
+  x <- evalExpr' expr pos'
+  y <- evalExpr' expr' pos''
+  evalBinOp op x y
 evalExpr' (UnaryOp op (pos :< expr)   ) pos' = evalExpr' expr pos >>= evalUOp op
 -- evalExpr' (AttrExpr (pos :< expr) attr) pos' =
 --     evalExpr' expr pos >>= evalAttrExpr attr
 evalExpr' (Var x                      ) pos  = lookupScope x pos
 evalExpr' (CallExpr (pos :< expr) args) pos' = evalExpr' expr pos >>= \case
-    Fn fn -> do
-        args <- mapM (\(aPos :< aExpr) -> evalExpr' aExpr aPos) args
-        fn args
-
+  Fn fn -> do
+    args <- mapM (\(aPos :< aExpr) -> evalExpr' aExpr aPos) args
+    fn args
+evalExpr' (Match expr branches) pos = do
+  e <- evalExpr expr
+  getMatchingBranch branches e >>= \case
+    Nothing -> throwError $ Custom (begin pos) "No matching branch"
+    Just e' -> pure e'
 evalExpr' (Lambda params expr) pos =
-    return $ Fn $ (\args -> invokeFn expr args params)
+  return $ Fn $ (\args -> invokeFn expr args params)
 evalExpr' (Range (pos :< expr) (pos' :< expr')) pos''' = do
-    to   <- evalExpr' expr pos
-    from <- evalExpr' expr' pos'
-    case (to, from) of
-        (VInt   x, VInt y  ) -> return $ VList $ map VInt [x .. y]
-        (VFloat x, VFloat y) -> return $ VList $ map VFloat [x .. y]
-        (VInt x, VFloat y) ->
-            return $ VList $ map VFloat [(fromIntegral x) .. y]
-        (VFloat x, VInt y) ->
-            return $ VList $ map VFloat [x .. (fromIntegral y)]
-        (VChar x, VChar y) -> return $ VList $ map VChar [x .. y]
-        _                  -> throwError $ Custom (begin pos) "Mismatched types"
+  to   <- evalExpr' expr pos
+  from <- evalExpr' expr' pos'
+  case (to, from) of
+    (VInt   x, VInt y  ) -> return $ VList $ map VInt [x .. y]
+    (VFloat x, VFloat y) -> return $ VList $ map VFloat [x .. y]
+    (VInt   x, VFloat y) -> return $ VList $ map VFloat [(fromIntegral x) .. y]
+    (VFloat x, VInt y  ) -> return $ VList $ map VFloat [x .. (fromIntegral y)]
+    (VChar  x, VChar y ) -> return $ VList $ map VChar [x .. y]
+    _                    -> throwError $ Custom (begin pos) "Mismatched types"
 invokeFn :: Expr -> [Value] -> [String] -> EvalState Value
 invokeFn (pos :< expr) given expected = if length given == length expected
-    then do
-        enterScope
-        mapM_ (\(name, value) -> insertInScope name value) (zip expected given)
-        evalExpr' expr pos <* leaveScope
-    else
-        throwError
-        $  Custom (begin pos)
-        $  "Expected "
-        <> show (length expected)
-        <> " arguments but "
-        <> show (length given)
-        <> " were given"
+  then do
+    enterScope
+    mapM_ (\(name, value) -> insertInScope name value) (zip expected given)
+    evalExpr' expr pos <* leaveScope
+  else
+    throwError
+    $  Custom (begin pos)
+    $  "Expected "
+    <> show (length expected)
+    <> " arguments but "
+    <> show (length given)
+    <> " were given"
 
 
 getOp :: String -> EvalState ([Value] -> EvalState Value)
@@ -128,11 +143,9 @@ evalLiteral (Float   x) = pure $ VFloat x
 evalLiteral (Boolean x) = pure $ VBool x
 evalLiteral (Str     x) = pure $ VString $ T.unpack x
 evalLiteral (Char'   x) = pure $ VChar x
-evalLiteral (Array   x) = traverse (\(aPos :< aExpr) -> evalExpr' aExpr aPos) x
-    >>= \v -> pure $ VList v
+evalLiteral (Array x) =
+  traverse (\(aPos :< aExpr) -> evalExpr' aExpr aPos) x >>= \v -> pure $ VList v
 evalLiteral (Object x) =
-    traverse (\(aPos :< aExpr) -> evalExpr' aExpr aPos) x
-        >>= \v -> pure $ VObject v
+  traverse (\(aPos :< aExpr) -> evalExpr' aExpr aPos) x
+    >>= \v -> pure $ VObject v
 evalLiteral Void = pure VoidV
-
-
