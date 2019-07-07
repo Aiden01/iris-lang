@@ -36,6 +36,7 @@ dependencies:
   - free
   - comonad
   - ansi-wl-pprint
+  - lens
 
 library:
   source-dirs: src

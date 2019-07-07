@@ -12,6 +12,7 @@ import           Language.Interpreter.Types
 import           Language.Parser.ExprParser
 import           Language.Interpreter.ExprEval
 import           Language.Typing.TypeChecker
+import           Language.Typing.Types
 import           Language.PrettyPrinter
 import           Text.Megaparsec
 import           Language.Interpreter.DefaultEnv
@@ -36,12 +37,9 @@ eval fileName buffer =
   return (parse (parseProgram <* eof) fileName (T.pack buffer)) >>= \case
     Left  e   -> red $ errorBundlePretty $ e
     Right ast -> do
-      tc ast >>= \case
-        Left e -> red $ show e
-        Right _ ->
-          (runExceptT $ evalStateT (evalProgram ast) [defaultEnv]) >>= \case
-            Left  e -> red $ show e
-            Right _ -> return ()
+      (runExceptT $ evalStateT (evalProgram ast) [defaultEnv]) >>= \case
+        Left  e -> red $ show e
+        Right _ -> return ()
 
 
 -- eval' :: String -> IO ()

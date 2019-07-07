@@ -178,6 +178,8 @@ parseTypeExpr = lexeme
         <|> Mega.try tChar
         <|> Mega.try tArray
         <|> tFloat
+        <|> tAny
+        <|> tFn
         )
         Mega.<?> "type expression"
 
@@ -185,7 +187,14 @@ tInt = keyword "Int" *> pure TInt
 tString = keyword "String" *> pure TString
 tChar = keyword "Int" *> pure TChar
 tFloat = keyword "Float" *> pure TFloat
+tFn = do
+  params <- parens $ commaSep parseTypeExpr
+  symbol "->"
+  returnT <- parseTypeExpr
+  pure $ Fn params returnT
+
 tArray = do
     keyword "Array"
     t0 <- brackets parseTypeExpr
     pure $ TArray t0
+tAny = keyword "Any" *> pure TAny

@@ -1,239 +1,135 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, FlexibleContexts #-}
 module Language.Typing.TypeChecker
-  ( tc
+  ( runTypeChecking
   )
 where
 
+import           Prelude                 hiding ( read )
+import           Language.Parser.AST
+import           Control.Lens            hiding ( (:<) )
 import           Language.Typing.Types
-import           Language.Parser.AST            ( Lit(..)
-                                                , Expr
-                                                , UnaryOp(..)
-                                                , Statement(..)
-                                                , Program(..)
-                                                , Param(..)
-                                                , BinOp(..)
-                                                , ExprF(..)
-                                                , Type(..)
-                                                , SourceSpan(..)
-                                                , Pattern(..)
-                                                , AnPattern
-                                                , StmtContext(..)
+import           Control.Comonad                ( extract )
+import           Control.Monad.Reader
+import           Language.Interpreter.Types     ( exists
+                                                , get
+                                                , insert
                                                 )
-import           Control.Comonad.Cofree
-import qualified Language.Interpreter.Types    as T
-import           Control.Monad.State            ( gets
-                                                , modify
-                                                , evalStateT
-                                                )
+import           Data.Maybe                     ( isJust )
 import           Control.Monad.Except           ( throwError
                                                 , runExceptT
                                                 )
-import           Data.Map                       ( fromList
-                                                , toList
-                                                )
-import           Language.PrettyPrinter
-import           Language.Typing.DefaultEnvType
-import           Control.Applicative            ( (<|>) )
-import           Data.Maybe                     ( fromMaybe )
-import           Data.List                      ( find )
+import           Control.Comonad.Cofree
+import qualified Data.Map                      as M
 
 
-exprs2Types :: [Expr] -> TcState [Type]
-exprs2Types = traverse tcExprType
-
-compareTypes :: [Type] -> [Type] -> SourceSpan -> TcState ()
-compareTypes expected given pos =
-  mapM_
-      (\(t0, t1) ->
-        if t0 == t1 then pure () else throwError $ Mismatch t0 t1 pos
-      )
-    $ zip expected given
-
-enterScope :: TcState ()
-enterScope = modify ((:) (fromList []))
-
-leaveScope :: TcState ()
-leaveScope = modify tail
-
-insertInScope :: String -> Type -> TcState ()
-insertInScope name t = modify (\(s : ss) -> T.insert name t s : ss)
-
-existsInSameScope :: String -> TcState Bool
-existsInSameScope name = gets (T.exists name . head)
-
-tcLitType :: Lit -> SourceSpan -> TcState Type
-tcLitType (Number  _       ) _   = pure TInt
-tcLitType (Boolean _       ) _   = pure TBool
-tcLitType (Str     _       ) _   = pure TString
-tcLitType (Array   (e : ex)) pos = do
-  expected      <- tcExprType e
-  isHomogeneous <- all (== expected) <$> exprs2Types ex
-  case isHomogeneous of
-    True  -> pure $ TArray expected
-    False -> throwError $ Custom "Expected array of homogeneous types" pos
-tcLitType (Char' _) _ = pure TChar
-tcLitType (Float _) _ = pure TFloat
-tcLitType Void      _ = pure VoidT
-
-tcBinOpType :: BinOp -> Expr -> Expr -> TcState Type
-tcBinOpType op e@(pos :< _) e' = do
-  t0 <- tcExprType e
-  t1 <- tcExprType e'
-  case (op, t0, t1) of
-    (Add , TInt  , TInt  ) -> pure TInt
-    (Add , TFloat, TFloat) -> pure TFloat
-    (Add , TFloat, TInt  ) -> pure TFloat
-    (Add , TInt  , TFloat) -> pure TFloat
-    (Add , TInt  , b     ) -> throwError $ Mismatch TInt b pos
-    (Add , a     , TInt  ) -> throwError $ Mismatch TInt a pos
-    (Add , TFloat, b     ) -> throwError $ Mismatch TFloat b pos
-    (Add , a     , TFloat) -> throwError $ Mismatch TFloat a pos
-    (Mult, TInt  , TInt  ) -> pure TInt
-    (Mult, TFloat, TFloat) -> pure TFloat
-    (Mult, TFloat, TInt  ) -> pure TFloat
-    (Mult, TInt  , TFloat) -> pure TFloat
-    (Mult, TInt  , b     ) -> throwError $ Mismatch TInt b pos
-    (Mult, a     , TInt  ) -> throwError $ Mismatch TInt a pos
-    (Mult, TFloat, b     ) -> throwError $ Mismatch TFloat b pos
-    (Mult, a     , TFloat) -> throwError $ Mismatch TFloat a pos
-    (Sub , TInt  , TInt  ) -> pure TInt
-    (Sub , TFloat, TFloat) -> pure TFloat
-    (Sub , TFloat, TInt  ) -> pure TFloat
-    (Sub , TInt  , TFloat) -> pure TFloat
-    (Sub , TInt  , b     ) -> throwError $ Mismatch TInt b pos
-    (Sub , a     , TInt  ) -> throwError $ Mismatch TInt a pos
-    (Sub , TFloat, b     ) -> throwError $ Mismatch TFloat b pos
-    (Sub , a     , TFloat) -> throwError $ Mismatch TFloat a pos
-
-tcPatternType :: AnPattern -> Type -> Expr -> TcState Type
-tcPatternType (pos :< PLit lit ) _ _    = tcLitType lit pos
-tcPatternType (pos :< PVar name) t expr = do
-  enterScope
-  insertInScope name t
-  tcExprType expr <* leaveScope
-
-tcBranch :: Type -> Type -> (AnPattern, Expr) -> TcState ()
-tcBranch expectedPT expectedExprT (p, expr@(pos :< _)) = do
-  t0 <- tcPatternType p expectedPT expr
-  t1 <- tcExprType expr
-  compareTypes [expectedPT, expectedExprT] [t0, t1] pos
-
-tcExprType :: Expr -> TcState Type
-tcExprType (pos  :< Literal lit                     ) = tcLitType lit pos
-tcExprType (pos  :< Var     name                    ) = lookupScope name pos
-tcExprType (_    :< BinOp op e e'                   ) = tcBinOpType op e e'
-tcExprType (pos0 :< CallExpr expr@(pos1 :< _) params) = do
-  given <- exprs2Types params
-  fnT   <- tcExprType expr
-  case fnT of
-    Fn expected returnT -> compareTypes given expected pos1 *> pure returnT
-    _                   -> throwError $ Custom "not a function" pos0
-tcExprType (pos :< Match expr ((p, e) : branches)) = do
-  expectedPT <- tcExprType expr
-  t0         <- tcPatternType p expectedPT e
-  compareTypes [expectedPT] [t0] pos
-  expectedExprT <- tcExprType e
-  traverse (tcBranch expectedPT expectedExprT) branches
-  pure expectedExprT
-tcStmtsType :: [Statement] -> Bool -> TcState ()
-tcStmtsType [] _ = pure ()
-tcStmtsType (stmt : stmts) inFn =
-  tcStmtType stmt inFn *> tcStmtsType stmts inFn
-
-extractParamTypes :: [Param] -> [Type]
-extractParamTypes = map (\(Param _ t) -> t)
-
-insertFnParams :: [Param] -> TcState ()
-insertFnParams params = modify
-  (\(s : ss) ->
-    fromList (foldl (\env (Param id t0) -> (id, t0) : env) (toList s) params)
-      : ss
-  )
-
-insertFnType :: String -> [Param] -> Type -> TcState ()
-insertFnType name params t =
-  modify (\(s : ss) -> T.insert name (Fn (extractParamTypes params) t) s : ss)
+compareTypes :: SourceSpan -> Type -> Type -> TypeCheck Type
+compareTypes pos t0 t1 | t0 == t1  = pure t0
+                       | otherwise = throwError $ Mismatch t0 t1 pos
+read = asks . view
 
 
+getVar :: String -> SourceSpan -> TypeCheck Type
+getVar name pos = do
+  env <- read tcEnv
+  case get name env of
+    Just t  -> pure t
+    Nothing -> throwError $ NotInScope name pos
 
+instance TypeCheckable Lit Type where
+  tc (Number _) = pure TInt
+  tc (Boolean _) = pure TBool
+  tc (Str _) = pure TString
+  tc (Array (e:exprs)) = do
+    expected <- tc e
+    traverse (\ e -> tc e >>= compareTypes (extract e) expected) exprs
+    pure $ TArray expected
+  tc (Char' _) = pure TChar
+  tc (Float _) = pure TFloat
+  tc Void = pure VoidT
 
-lookupScope :: String -> SourceSpan -> TcState Type
-lookupScope id pos =
-  gets lookup' >>= maybe (throwError $ NotInScope id pos) pure
- where
-  lookup' :: [TypeEnv] -> Maybe Type
-  lookup' = foldr (<|>) Nothing . map (T.get id)
+instance TypeCheckable a Type => TypeCheckable [a] [Type] where
+  tc = traverse tc
 
-lookupImmediateScope :: String -> SourceSpan -> TcState Type
-lookupImmediateScope id pos =
-  gets (T.get id . head) >>= maybe (throwError $ NotInScope id pos) pure
+instance TypeCheckable Expr Type where
+  tc (_ :< Literal lit) = tc lit
+  tc (pos :< Var name) = getVar name pos
+  tc (pos :< CallExpr expr exprs) = tc expr >>= \case
+    Fn params t0 ->
+      if length exprs == length params then do
+        args <- tc exprs
+        mapM_ (uncurry (compareTypes pos)) $ zip params args
+        pure t0
+      else
+        throwError $ Custom ("Function takes " <> show (length params) <> " arguments, but " <> show (length exprs) <> " were passed") pos
+    _ -> throwError $ Custom "Not a function" pos
+  tc (pos :< Range start stop) = do
+    t0 <- tc start
+    t1 <- tc stop
+    compareTypes pos t0 t1
+    case t0 of
+      TChar -> pure $ TArray TChar
+      TInt -> pure $ TArray TInt
+      _ -> throwError $ Custom ("Could not create a range from type " <> show t0) pos
 
+instance TypeCheckable Param Type where
+  tc (Param _ t) = pure t
 
+tcStatements :: [Statement] -> TypeCheck ()
+tcStatements stmts = foldM_ (\f i -> (. f) <$> local f (tc i)) id stmts
 
-getFnReturnType :: Bool -> SourceSpan -> TcState Type
-getFnReturnType inFn pos
-  | not inFn = throwError $ Custom "Illegal return statement" pos
-  | otherwise = gets getFnReturnType' >>= \case
-    Nothing -> throwError $ Custom "Illegal return statement" pos
-    Just x  -> pure x
- where
-  isFn (Fn _ _) = True
-  isFn _        = False
-  getFnReturnType' :: [TypeEnv] -> Maybe Type
-  getFnReturnType' []       = Nothing
-  getFnReturnType' (s : ss) = case find (isFn . snd) $ toList s of
-    Just (_, Fn _ x) -> Just x
-    Nothing          -> getFnReturnType' ss
+checkRedecl :: String -> SourceSpan -> TypeCheck ()
+checkRedecl name pos = asks (exists name . view tcEnv) >>= \case
+  True  -> throwError $ Redeclaration name pos
+  False -> pure ()
 
+enterFunction
+  :: String -> [Param] -> [Type] -> Type -> TypeCheckEnv -> TypeCheckEnv
+enterFunction name params paramTypes t =
+  let paramsMap = M.fromList $ map (\(Param n t) -> (n, t)) params
+      fnEnv     = M.insert name (Fn paramTypes t) paramsMap
+  in  (tcExpected .~ Just t) . (tcEnv %~ M.union fnEnv)
 
+instance TypeCheckable Statement (TypeCheckEnv -> TypeCheckEnv) where
+  tc (ReturnStmt expr) = read tcExpected >>= \case
+    Nothing -> throwError $ Custom "Illegal return statement" (extract expr)
+    Just expected -> do
+      t <- tc expr
+      compareTypes (extract expr) expected t
+      pure id
 
-modifyScope :: String -> Type -> SourceSpan -> [TypeEnv] -> [TypeEnv]
-modifyScope id t pos (s : ss) =
-  if T.exists id s then T.modify id t s : ss else modifyScope id t pos ss
+  tc (WhileStmt expr stmts) = tc expr >>= \case
+    TBool -> tcStatements stmts *> pure id
+    t -> throwError $ Mismatch TBool t (extract expr)
+  tc (VarDecl name maybeType expr) = do
+    checkRedecl name $ extract expr
+    t0 <- case maybeType of
+            Just t -> tc expr >>= compareTypes (extract expr) t
+            Nothing -> tc expr
+    pure (tcEnv %~ insert name t0)
+  tc (FnDecl name params stmts t) = do
+    checkRedecl name undefined
+    types <- tc params
+    local (enterFunction name params types t) $ tcStatements stmts
+    pure (tcEnv %~ insert name (Fn types t))
+  tc (Assign name expr _) = do
+    t0 <- getVar name $ extract expr
+    t1 <- tc expr
+    compareTypes (extract expr) t0 t1
+    pure id
+  tc (IfStmt cond stmts elseBlock) = do
+    t <- tc cond
+    compareTypes (extract cond) TBool t
+    tcStatements stmts
+    case elseBlock of
+      Just stmts' -> tcStatements stmts' *> pure id
+      Nothing -> pure id
 
-tcStmtType :: Statement -> Bool -> TcState ()
-tcStmtType (VarDecl name maybeT expr@(pos :< _)) _ =
-  existsInSameScope name >>= \case
-    True  -> throwError $ Redeclaration name pos
-    False -> do
-      t1 <- tcExprType expr
-      let t0 = fromMaybe t1 maybeT
-      if t0 == t1
-        then insertInScope name t0
-        else throwError $ Mismatch t0 t1 pos
-tcStmtType (ReturnStmt expr@(pos :< _)) inFn = do
-  t0 <- getFnReturnType inFn pos
-  t1 <- tcExprType expr
-  if t0 == t1 then pure () else throwError $ Mismatch t0 t1 pos
-tcStmtType (Assign name expr@(pos :< _) ctx) _ = do
-  t0 <- case ctx of
-    InFunction -> lookupImmediateScope name pos
-    TopLevel   -> lookupScope name pos
-  t1 <- tcExprType expr
-  if t0 == t1
-    then modify (modifyScope name t1 pos)
-    else throwError $ Mismatch t0 t1 pos
-tcStmtType (FnDecl name params stmts t) _ = existsInSameScope name >>= \case
-  True  -> throwError $ Redeclaration name undefined
-  False -> do
-    insertFnType name params t
-    enterScope
-    insertFnParams params
-    tcStmtsType stmts True
-    leaveScope
-tcStmtType (CallStmt name params@((pos :< _) : _)) _ =
-  lookupScope name pos >>= \case
-    Fn types _ -> do
-      given <- exprs2Types params
-      compareTypes types given pos
-      pure ()
-    _ -> throwError $ Custom (name <> " is not a function") pos
-tcStmtType (WhileStmt expr@(pos :< _) stmts) inFn = tcExprType expr >>= \case
-  TBool -> tcStmtsType stmts inFn
-  t     -> throwError $ Mismatch TBool t pos
+instance TypeCheckable Program () where
+  tc (Program stmts) = tcStatements stmts
 
-tcProgram :: Program -> TcState ()
-tcProgram (Program stmts) = tcStmtsType stmts False
+defaultTypeCheckEnv :: TypeCheckEnv
+defaultTypeCheckEnv =
+  TypeCheckEnv {_tcExpected = Nothing, _tcEnv = M.fromList []}
 
-tc :: Program -> IO (Either TypeError ())
-tc p = runExceptT $ evalStateT (tcProgram p) [defaultEnvType]
+runTypeChecking :: Program -> IO (Either TypeError ())
+runTypeChecking p = runExceptT $ runReaderT (tc p) defaultTypeCheckEnv
